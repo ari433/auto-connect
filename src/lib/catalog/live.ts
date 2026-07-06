@@ -27,7 +27,7 @@ import type {
 import type { VehicleQuery } from '@/lib/search/query';
 
 const TTL_MS = Number(process.env.CATALOG_LIVE_TTL_MS ?? 300_000);
-const LIVE_LIMIT = Number(process.env.CATALOG_LIVE_LIMIT ?? 80);
+const LIVE_LIMIT = Number(process.env.CATALOG_LIVE_LIMIT ?? 40);
 // Fixed epoch so per-item timestamps are stable across renders (order-based).
 const EPOCH = Date.UTC(2026, 0, 1);
 
