@@ -273,9 +273,15 @@ async function fetchRaw(
     const kind = classifyStatus(res.status, code);
     const retryAfter = Number(res.headers.get('Retry-After')) || rateLimit.reset;
     if (kind === 'RATE_LIMIT_EXCEEDED') {
-      // Back off for a minute (or the server's hint, capped) before trying again.
-      const waitMs = Math.min(Math.max((retryAfter || 60) * 1000, 60_000), 120_000);
+      // Honour the server's actual reset time — it can be many hours on a
+      // strict plan. Retrying sooner than that only wastes quota and may
+      // extend a sliding window. Cap at 24h purely as a sanity bound.
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      const waitMs = Math.min(Math.max((retryAfter || 60) * 1000, 60_000), ONE_DAY_MS);
       rateLimitedUntil = Date.now() + waitMs;
+      console.warn(
+        `[carapis] Rate limited — pausing all requests for ${Math.round(waitMs / 60000)} min (until ${new Date(rateLimitedUntil).toLocaleString()}).`,
+      );
     }
     throw new CarapisError(kind, `Carapis ${res.status}: ${message}`, res.status, retryAfter);
   }
