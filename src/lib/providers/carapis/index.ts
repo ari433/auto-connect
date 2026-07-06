@@ -143,20 +143,20 @@ function buildListUrl(
 ): string {
   const url = new URL(CONFIG.vehiclesPath, `${CONFIG.baseUrl}/`);
   const p = url.searchParams;
-  // Live catalog_api pagination.
+  // Live catalog_api pagination (the API is strict — only valid params allowed).
   p.set('page', String(page));
   p.set('page_size', String(pageSize));
   p.set('available_only', String(CONFIG.availableOnly));
   // Restrict to one source (e.g. Encar / South Korea) when configured.
-  if (sourceCode) p.set('source_code', sourceCode);
-  // Best-effort upstream filters (ignored gracefully if unsupported —
-  // the storefront also filters locally in our own search engine).
+  // NB: the query parameter is `source` (the response *field* is source_code).
+  if (sourceCode) p.set('source', sourceCode);
+  // Upstream filters, using the API's exact parameter names.
   if (filters.brand) p.set('brand', filters.brand);
   if (filters.model) p.set('model', filters.model);
-  if (filters.yearMin != null) p.set('year_min', String(filters.yearMin));
-  if (filters.yearMax != null) p.set('year_max', String(filters.yearMax));
-  if (filters.priceMin != null) p.set('price_min', String(filters.priceMin));
-  if (filters.priceMax != null) p.set('price_max', String(filters.priceMax));
+  if (filters.yearMin != null) p.set('min_year', String(filters.yearMin));
+  if (filters.yearMax != null) p.set('max_year', String(filters.yearMax));
+  if (filters.priceMin != null) p.set('min_price', String(filters.priceMin));
+  if (filters.priceMax != null) p.set('max_price', String(filters.priceMax));
   return url.toString();
 }
 
@@ -597,14 +597,25 @@ export const carapisProvider: VehicleProvider = {
     const cap = Math.min(options?.limit ?? CONFIG.maxVehicles, CONFIG.maxVehicles);
 
     try {
-      let collected = await pullPages(cap, CONFIG.sourceCode);
-      // Safety net: if a source filter (e.g. "encar") yields nothing — because
-      // the value is wrong or that source isn't in the plan — retry unfiltered
-      // so the storefront is never empty.
-      if (collected.length === 0 && CONFIG.sourceCode) {
-        console.warn(
-          `[carapis] source_code="${CONFIG.sourceCode}" returned 0 vehicles — retrying without the filter.`,
-        );
+      let collected: ProviderVehicle[] = [];
+      // Try the configured source (e.g. "encar"). If that value is invalid or
+      // yields nothing, fall back to unfiltered so the storefront is never empty.
+      if (CONFIG.sourceCode) {
+        try {
+          collected = await pullPages(cap, CONFIG.sourceCode);
+        } catch (e) {
+          console.warn(
+            `[carapis] source="${CONFIG.sourceCode}" failed (${e instanceof Error ? e.message : e}) — retrying without the filter.`,
+          );
+          collected = [];
+        }
+        if (collected.length === 0) {
+          console.warn(
+            `[carapis] source="${CONFIG.sourceCode}" returned no vehicles — retrying without the filter.`,
+          );
+          collected = await pullPages(cap, '');
+        }
+      } else {
         collected = await pullPages(cap, '');
       }
       return collected.slice(0, cap);
