@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { carapisProvider } from '@/lib/providers/carapis';
 import type { ProviderVehicle, VehicleProvider } from '@/lib/providers/types';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
-import { slugify } from '@/lib/utils';
+import { buildVehicleSlug } from '@/lib/vehicles/slug';
 import type { VehicleImage } from '@/types/vehicle';
 
 export interface SyncResult {
@@ -14,15 +14,6 @@ export interface SyncResult {
   updated: number;
   removed: number;
   message?: string;
-}
-
-/** Build a unique, stable, human-readable slug for a source vehicle. */
-function buildSlug(v: ProviderVehicle): string {
-  const parts = [v.brand, v.model, v.variant, String(v.year)]
-    .filter(Boolean)
-    .join(' ');
-  const suffix = v.ref.replace(/[^a-z0-9]/gi, '').slice(-5).toLowerCase();
-  return `${slugify(parts)}-${suffix}`;
 }
 
 /** Map a provider vehicle into a fully-priced Prisma vehicle payload. */
@@ -41,7 +32,7 @@ function toVehicleData(
     `${v.brand} ${v.model} ${v.variant ?? ''}`.trim();
 
   return {
-    slug: buildSlug(v),
+    slug: buildVehicleSlug(v),
     sourceRef: v.ref,
     brand: v.brand,
     model: v.model,

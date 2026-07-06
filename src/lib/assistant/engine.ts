@@ -1,8 +1,7 @@
-import { prisma } from '@/lib/prisma';
-import { toPublicVehicle } from '@/lib/vehicles/mapper';
+import { searchVehicles, getFeaturedVehicles } from '@/lib/catalog';
 import { formatPrice, formatMileage } from '@/lib/utils';
 import { fuelLabels, bodyTypeLabels } from '@/lib/labels';
-import type { Prisma } from '@prisma/client';
+import type { VehicleQuery } from '@/lib/search/query';
 import type { BodyType, FuelType, Vehicle } from '@/types/vehicle';
 
 /**
@@ -93,45 +92,56 @@ function parseBudget(t: string): number | undefined {
   return candidate;
 }
 
-/** Build a Prisma query from intent and return grounded recommendations. */
+/** Base query with the catalogue defaults filled in. */
+function baseQuery(overrides: Partial<VehicleQuery>): VehicleQuery {
+  return {
+    q: undefined,
+    brand: [],
+    model: [],
+    bodyType: [],
+    fuel: [],
+    transmission: [],
+    drive: [],
+    featured: false,
+    sort: 'newest',
+    page: 1,
+    pageSize: 3,
+    ...overrides,
+  };
+}
+
+/** Turn intent into a catalogue query and return grounded recommendations. */
 export async function recommend(text: string): Promise<AssistantReply> {
   const intent = parseIntent(text);
 
-  const where: Prisma.VehicleWhereInput = {
-    status: { in: ['AVAILABLE', 'RESERVED', 'IN_TRANSIT'] },
-  };
-  if (intent.maxPrice) where.price = { lte: intent.maxPrice };
-  if (intent.minSeats) where.seats = { gte: intent.minSeats };
-  if (intent.fuels.length) where.fuel = { in: intent.fuels };
-  if (intent.bodyTypes.length) where.bodyType = { in: intent.bodyTypes };
-  if (intent.brands.length) where.brand = { in: intent.brands };
-  if (intent.wantsSporty) where.horsepower = { gte: 250 };
+  // Family requests without an explicit body type lean toward roomy vehicles.
+  const bodyType = intent.bodyTypes.length
+    ? intent.bodyTypes
+    : intent.wantsFamily
+      ? (['SUV', 'VAN'] as BodyType[])
+      : [];
 
-  const orderBy: Prisma.VehicleOrderByWithRelationInput[] = intent.wantsEconomy
-    ? [{ price: 'asc' }]
-    : intent.wantsSporty
-      ? [{ horsepower: 'desc' }]
-      : [{ featured: 'desc' }, { createdAt: 'desc' }];
+  const query = baseQuery({
+    brand: intent.brands,
+    bodyType,
+    fuel: intent.fuels,
+    maxPrice: intent.maxPrice,
+    minHp: intent.wantsSporty ? 250 : undefined,
+    sort: intent.wantsEconomy ? 'price_asc' : 'newest',
+  });
 
-  let rows = await prisma.vehicle.findMany({ where, orderBy, take: 3 });
+  let vehicles = (await searchVehicles(query)).items;
 
-  // Graceful fallback: relax to price-only, then to featured stock.
-  if (rows.length === 0 && intent.maxPrice) {
-    rows = await prisma.vehicle.findMany({
-      where: { status: where.status, price: { lte: intent.maxPrice } },
-      orderBy: [{ price: 'asc' }],
-      take: 3,
-    });
+  // Graceful fallback: relax to budget-only, then to featured stock.
+  if (vehicles.length === 0 && intent.maxPrice) {
+    vehicles = (
+      await searchVehicles(baseQuery({ maxPrice: intent.maxPrice, sort: 'price_asc' }))
+    ).items;
   }
-  if (rows.length === 0) {
-    rows = await prisma.vehicle.findMany({
-      where: { status: where.status },
-      orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
-      take: 3,
-    });
+  if (vehicles.length === 0) {
+    vehicles = await getFeaturedVehicles(3);
   }
 
-  const vehicles = rows.map(toPublicVehicle);
   return { intent, vehicles, message: composeMessage(intent, vehicles) };
 }
 

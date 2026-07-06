@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { getFeaturedVehicles, getLatestVehicles } from '@/lib/search/engine';
+import { getFeaturedVehicles, getLatestVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { Hero } from '@/components/home/hero';
 import {

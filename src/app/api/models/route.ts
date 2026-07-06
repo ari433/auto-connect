@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getModelsForBrands } from '@/lib/search/engine';
+import { getModelsForBrands } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 

@@ -6,15 +6,12 @@ import { isAuthorizedRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+const SUCCESS_MESSAGE = 'Faleminderit! Do t’ju kontaktojmë së shpejti.';
+
 export async function POST(req: NextRequest) {
+  let input;
   try {
-    const body = await req.json();
-    const input = leadInputSchema.parse(body);
-    const lead = await createLead(input);
-    return NextResponse.json(
-      { ok: true, id: lead.id, message: 'Faleminderit! Do t’ju kontaktojmë së shpejti.' },
-      { status: 201 },
-    );
+    input = leadInputSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
@@ -22,8 +19,24 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    console.error('[api/leads:POST]', error);
-    return NextResponse.json({ ok: false, error: 'Gabim i brendshëm' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'Kërkesë e pavlefshme' }, { status: 400 });
+  }
+
+  try {
+    const lead = await createLead(input);
+    return NextResponse.json({ ok: true, id: lead.id, message: SUCCESS_MESSAGE }, { status: 201 });
+  } catch (error) {
+    // No database (live mode) or a transient DB issue: never fail the customer.
+    // The submission is recorded to the server log for follow-up.
+    console.warn('[api/leads] not persisted — capturing to log:', {
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      source: input.source,
+      vehicleSlug: input.vehicleSlug,
+      error: error instanceof Error ? error.message : 'unknown',
+    });
+    return NextResponse.json({ ok: true, persisted: false, message: SUCCESS_MESSAGE }, { status: 202 });
   }
 }
 

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { site } from '@/lib/site';
-import { getAllVehicleSlugs } from '@/lib/search/engine';
+import { getAllVehicleSlugs } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 
 export const revalidate = 3600;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFacets } from '@/lib/search/engine';
+import { getFacets } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 

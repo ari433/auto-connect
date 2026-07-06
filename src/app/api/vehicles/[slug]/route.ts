@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getVehicleBySlug, getRelatedVehicles } from '@/lib/search/engine';
+import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 

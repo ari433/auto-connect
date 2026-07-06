@@ -10,6 +10,31 @@ and a full admin back office.
 
 ---
 
+## Quick start — see real cars with just a key
+
+The storefront runs in **live mode with no database**: it reads cars straight
+from Carapis on the server. You only need a Carapis API key.
+
+**Run locally (VS Code):**
+```bash
+npm install
+# create a .env file with one line:  CARAPIS_API_KEY="your_key_here"
+npm run dev            # → http://localhost:3000  (real cars, real photos)
+```
+That's it — no database, no migrations, no sync. (Free Tier works even with no key.)
+
+**Deploy to Vercel:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ari433/auto-connect&env=CARAPIS_API_KEY&envDescription=Your%20Carapis%20API%20key&project-name=auto-connect)
+
+Set `CARAPIS_API_KEY` when prompted → Deploy → open the URL. Real inventory loads
+immediately; nothing else to configure.
+
+> Want persistence, lead capture, and the admin dashboard? Add a PostgreSQL
+> `DATABASE_URL` and set `CATALOG_SOURCE=db` — see [Catalogue modes](#catalogue-modes).
+
+---
+
 ## Tech stack
 
 - **Next.js 15** (App Router, RSC) · **React 19** · **TypeScript** (strict)
@@ -106,6 +131,24 @@ breakdown for admin. Only the final price is ever exposed to customers. The
 `priceEUR`, per the public contract.
 
 ---
+
+## Catalogue modes
+
+A single facade (`src/lib/catalog`) serves every page/route, hiding where data
+comes from:
+
+| Mode | When | Needs a DB? | Best for |
+| --- | --- | --- | --- |
+| **live** | `CATALOG_SOURCE=live`, or no `DATABASE_URL` | No | Instant setup, demos, "just the key" |
+| **db** | `CATALOG_SOURCE=db`, or `DATABASE_URL` set | Yes | Persistence, leads, admin, quota-saving |
+
+Live mode reads inventory from Carapis on the server and answers search / filter
+/ facet / detail queries in memory (results cached briefly via
+`CATALOG_LIVE_TTL_MS`, capped by `CATALOG_LIVE_LIMIT`). Leads still submit
+successfully (captured to logs) even without a database.
+
+DB mode adds the sync engine, lead persistence, and the admin dashboards — run
+`npm run prisma:push && npm run db:seed`, then set `CATALOG_SOURCE=db`.
 
 ## Getting started
 

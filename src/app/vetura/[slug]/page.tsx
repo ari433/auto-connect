@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronRight, Phone, ShieldCheck, Ship, Sparkles } from 'lucide-react';
-import { getVehicleBySlug, getRelatedVehicles } from '@/lib/search/engine';
+import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { site } from '@/lib/site';
 import { formatMileage, formatPrice } from '@/lib/utils';

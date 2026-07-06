@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ZodError } from 'zod';
 import { parseVehicleQuery } from '@/lib/search/query';
-import { searchVehicles } from '@/lib/search/engine';
+import { searchVehicles } from '@/lib/catalog';
 
 export const dynamic = 'force-dynamic';
 

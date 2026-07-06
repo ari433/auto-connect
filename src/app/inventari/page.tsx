@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { parseVehicleQuery } from '@/lib/search/query';
-import { getFacets, searchVehicles } from '@/lib/search/engine';
+import { getFacets, searchVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { ButtonLink } from '@/components/ui/button';
 import { InventoryFilters } from '@/components/search/filters';
