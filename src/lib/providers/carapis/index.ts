@@ -37,17 +37,24 @@ if (typeof window !== 'undefined') {
 
 const CONFIG = {
   baseUrl: (process.env.CARAPIS_BASE_URL ?? 'https://api.carapis.com').replace(/\/$/, ''),
-  /** List path. Versioning (`/encar` vs `/v1/encar`) is a one-env-var change. */
-  vehiclesPath: process.env.CARAPIS_VEHICLES_PATH ?? '/encar/vehicles',
+  /**
+   * List path. The live catalog endpoint is `/apix/catalog_api/vehicles/`
+   * (page-based). Versioning is a one-env-var change — set CARAPIS_VEHICLES_PATH.
+   */
+  vehiclesPath: process.env.CARAPIS_VEHICLES_PATH ?? '/apix/catalog_api/vehicles/',
   apiKey: process.env.CARAPIS_API_KEY ?? '',
+  /** Include sold/unavailable listings too (matches the live default). */
+  availableOnly: process.env.CARAPIS_AVAILABLE_ONLY === 'true',
   /** KRW → EUR conversion rate, shared with the pricing engine. */
   fxKrwToEur: Number(
     process.env.CARAPIS_KRW_EUR_RATE ?? process.env.PRICING_FX_KRW_EUR ?? 0.00069,
   ),
+  /** Flat demo markup added to the customer-facing EUR price. */
+  demoMarkupEur: Number(process.env.PRICING_DEMO_MARKUP_EUR ?? 0),
   /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
   maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 1000),
   pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 100),
-  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 15000),
+  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 20000),
   /**
    * When the API is unreachable AND no key is configured (local/offline dev),
    * fall back to the bundled snapshot so the platform is never empty. Disable
@@ -104,26 +111,53 @@ export interface RateLimit {
 type RawVehicle = Record<string, unknown>;
 
 interface RawEnvelope {
+  // Django REST Framework paginated shape (the live catalog_api).
+  count?: number;
+  next?: string | null;
+  previous?: string | null;
+  results?: RawVehicle[];
+  // Tolerated alternatives.
   success?: boolean;
-  data?: { vehicles?: RawVehicle[]; total?: number; limit?: number; offset?: number };
+  data?: { vehicles?: RawVehicle[]; results?: RawVehicle[]; total?: number };
   vehicles?: RawVehicle[];
-  error?: { code?: string; message?: string } | string;
+  error?: { code?: string; message?: string; detail?: string } | string;
 }
 
 /* ── HTTP layer ──────────────────────────────────────────────────────────── */
 
-function buildListUrl(query: CarQuery): string {
+function buildListUrl(filters: CarQuery, page: number, pageSize: number): string {
   const url = new URL(CONFIG.vehiclesPath, `${CONFIG.baseUrl}/`);
   const p = url.searchParams;
-  p.set('limit', String(query.limit ?? CONFIG.pageSize));
-  if (query.offset) p.set('offset', String(query.offset));
-  if (query.brand) p.set('brand', query.brand);
-  if (query.model) p.set('model', query.model);
-  if (query.yearMin != null) p.set('year_min', String(query.yearMin));
-  if (query.yearMax != null) p.set('year_max', String(query.yearMax));
-  if (query.priceMin != null) p.set('price_min', String(query.priceMin));
-  if (query.priceMax != null) p.set('price_max', String(query.priceMax));
+  // Live catalog_api pagination.
+  p.set('page', String(page));
+  p.set('page_size', String(pageSize));
+  p.set('available_only', String(CONFIG.availableOnly));
+  // Best-effort upstream filters (ignored gracefully if unsupported —
+  // the storefront also filters locally in our own search engine).
+  if (filters.brand) p.set('brand', filters.brand);
+  if (filters.model) p.set('model', filters.model);
+  if (filters.yearMin != null) p.set('year_min', String(filters.yearMin));
+  if (filters.yearMax != null) p.set('year_max', String(filters.yearMax));
+  if (filters.priceMin != null) p.set('price_min', String(filters.priceMin));
+  if (filters.priceMax != null) p.set('price_max', String(filters.priceMax));
   return url.toString();
+}
+
+/** Extract the vehicle array + total + whether more pages exist, tolerantly. */
+function parseEnvelope(body: RawEnvelope): {
+  vehicles: RawVehicle[];
+  total: number;
+  hasNext: boolean;
+} {
+  const vehicles =
+    body.results ??
+    body.data?.results ??
+    body.data?.vehicles ??
+    body.vehicles ??
+    (Array.isArray(body) ? (body as RawVehicle[]) : []);
+  const total = body.count ?? body.data?.total ?? vehicles.length;
+  const hasNext = Boolean(body.next);
+  return { vehicles, total, hasNext };
 }
 
 function readRateLimit(res: Response): RateLimit {
@@ -149,11 +183,16 @@ function classifyStatus(status: number, code?: string): CarapisErrorCode {
 interface RawResult {
   vehicles: RawVehicle[];
   total: number;
+  hasNext: boolean;
   rateLimit: RateLimit;
 }
 
 /** Core fetch. Adds Bearer auth only when a key exists (Free Tier needs none). */
-async function fetchRaw(query: CarQuery): Promise<RawResult> {
+async function fetchRaw(
+  filters: CarQuery,
+  page: number,
+  pageSize: number,
+): Promise<RawResult> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (CONFIG.apiKey) headers.Authorization = `Bearer ${CONFIG.apiKey}`;
 
@@ -162,7 +201,7 @@ async function fetchRaw(query: CarQuery): Promise<RawResult> {
 
   let res: Response;
   try {
-    res = await fetch(buildListUrl(query), {
+    res = await fetch(buildListUrl(filters, page, pageSize), {
       headers,
       cache: 'no-store',
       signal: controller.signal,
@@ -189,7 +228,7 @@ async function fetchRaw(query: CarQuery): Promise<RawResult> {
       if (typeof e === 'string') message = e;
       else if (e) {
         code = e.code;
-        message = e.message ?? message;
+        message = e.message ?? e.detail ?? message;
       }
     } catch {
       /* non-JSON error body */
@@ -200,9 +239,8 @@ async function fetchRaw(query: CarQuery): Promise<RawResult> {
   }
 
   const body = (await res.json()) as RawEnvelope;
-  const vehicles = body.data?.vehicles ?? body.vehicles ?? [];
-  const total = body.data?.total ?? vehicles.length;
-  return { vehicles, total, rateLimit };
+  const { vehicles, total, hasNext } = parseEnvelope(body);
+  return { vehicles, total, hasNext, rateLimit };
 }
 
 /* ── Field access helpers (tolerant of naming variants) ──────────────────── */
@@ -228,13 +266,23 @@ function toIso(v: unknown): string {
 }
 
 function extractImages(raw: RawVehicle): string[] {
-  const src = pick(raw, 'images', 'photos', 'image_urls', 'imageUrls');
+  const src = pick(
+    raw,
+    'images',
+    'photos',
+    'image_urls',
+    'imageUrls',
+    'pictures',
+    'gallery',
+    'image',
+  );
   const out: string[] = [];
   const push = (item: unknown) => {
     if (!item) return;
     if (typeof item === 'string') out.push(item);
     else if (typeof item === 'object') {
-      const url = (item as Record<string, unknown>).url ?? (item as Record<string, unknown>).src;
+      const o = item as Record<string, unknown>;
+      const url = o.url ?? o.src ?? o.full ?? o.original ?? o.large ?? o.href;
       if (typeof url === 'string') out.push(url);
     }
   };
@@ -244,7 +292,8 @@ function extractImages(raw: RawVehicle): string[] {
 }
 
 function eur(priceKrw: number): number {
-  return Math.round(priceKrw * CONFIG.fxKrwToEur);
+  // Demo markup is added to the customer-facing EUR figure.
+  return Math.round(priceKrw * CONFIG.fxKrwToEur) + CONFIG.demoMarkupEur;
 }
 
 /** Convert a KRW amount to EUR using the configured rate. */
@@ -430,8 +479,11 @@ export interface FetchCarsResult {
 
 /** Fetch a single page of inventory, mapped to the `Car` contract. */
 export async function fetchCars(query: CarQuery = {}): Promise<FetchCarsResult> {
+  const pageSize = query.limit ?? CONFIG.pageSize;
+  // Translate the public limit/offset contract into page-based pagination.
+  const page = query.offset ? Math.floor(query.offset / pageSize) + 1 : 1;
   try {
-    const { vehicles, total, rateLimit } = await fetchRaw(query);
+    const { vehicles, total, rateLimit } = await fetchRaw(query, page, pageSize);
     return { cars: vehicles.map(mapToCar), total, rateLimit, fromFallback: false };
   } catch (err) {
     if (shouldFallback(err)) {
@@ -452,17 +504,17 @@ export const carapisProvider: VehicleProvider = {
     const collected: ProviderVehicle[] = [];
 
     try {
-      let offset = 0;
+      let page = 1;
+      const maxPages = Math.ceil(cap / CONFIG.pageSize) + 1;
       // Bounded pagination — never loops beyond the configured cap.
-      while (collected.length < cap) {
-        const limit = Math.min(CONFIG.pageSize, cap - collected.length);
-        const { vehicles, total } = await fetchRaw({ limit, offset });
+      while (collected.length < cap && page <= maxPages) {
+        const { vehicles, hasNext } = await fetchRaw({}, page, CONFIG.pageSize);
         if (!vehicles.length) break;
         collected.push(...vehicles.map(mapToProviderVehicle));
-        offset += vehicles.length;
-        if (offset >= total) break;
+        if (!hasNext) break;
+        page += 1;
       }
-      return collected;
+      return collected.slice(0, cap);
     } catch (err) {
       if (shouldFallback(err)) {
         console.warn('[carapis] Sync fallback → bundled snapshot.');

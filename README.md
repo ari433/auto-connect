@@ -56,10 +56,13 @@ envelope, and field mapping. If Carapis versions its path (`/encar` →
 it is overridable via env with no code change:
 
 - `CARAPIS_BASE_URL`, `CARAPIS_VEHICLES_PATH` — path versioning is one env var.
+  Live catalog endpoint: `/apix/catalog_api/vehicles/` (page-based:
+  `page` / `page_size` / `available_only`).
 - Auth: `Authorization: Bearer ${CARAPIS_API_KEY}` (added only when a key exists;
   the **Free Tier works with no key**).
-- Response envelope `{ success, data: { vehicles, total, limit, offset } }` is
-  read tolerantly, with defensive fallbacks for field-name variants.
+- Response envelope is the DRF paginated shape
+  `{ count, next, previous, results: [...] }`, read tolerantly with fallbacks for
+  `data.vehicles` / `vehicles` / bare-array and field-name variants.
 - Two mappers from the raw feed: `mapToCar` (the Albanian `Car` contract served
   to the frontend) and `mapToProviderVehicle` (the richer catalogue record used
   by the sync engine).

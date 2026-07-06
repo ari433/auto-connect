@@ -25,6 +25,8 @@ export interface PricingConfig {
   minMarginEur: number;
   /** Final price is rounded up to this step, in EUR. */
   roundingStepEur: number;
+  /** Flat markup added to the final customer price (demo/promotional lever). */
+  demoMarkupEur: number;
 }
 
 export interface PriceBreakdown {
@@ -56,6 +58,7 @@ export function getPricingConfig(): PricingConfig {
     marginRate: num(process.env.PRICING_MARGIN_RATE, 0.12),
     minMarginEur: num(process.env.PRICING_MIN_MARGIN_EUR, 1800),
     roundingStepEur: num(process.env.PRICING_ROUNDING_EUR, 100),
+    demoMarkupEur: num(process.env.PRICING_DEMO_MARKUP_EUR, 0),
   };
 }
 
@@ -95,7 +98,9 @@ export function computePrice(
     config.minMarginEur,
   );
 
-  const price = roundUpTo(landedCostEur + marginEur, config.roundingStepEur);
+  const price =
+    roundUpTo(landedCostEur + marginEur, config.roundingStepEur) +
+    config.demoMarkupEur;
 
   return {
     sourcePriceKrw: priceKrw,
