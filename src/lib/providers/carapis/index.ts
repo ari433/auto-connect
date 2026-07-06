@@ -48,7 +48,7 @@ const CONFIG = {
    * inventory. Empty = all sources. The live catalog aggregates many markets;
    * set CARAPIS_SOURCE_CODE=encar to show only Korean (Encar) vehicles.
    */
-  sourceCode: (process.env.CARAPIS_SOURCE_CODE ?? '').trim(),
+  sourceCode: (process.env.CARAPIS_SOURCE_CODE ?? 'encar').trim(),
   /** Include sold/unavailable listings too (matches the live default). */
   availableOnly: process.env.CARAPIS_AVAILABLE_ONLY === 'true',
   /** KRW → EUR conversion rate, shared with the pricing engine. */
@@ -135,7 +135,12 @@ interface RawEnvelope {
 
 /* ── HTTP layer ──────────────────────────────────────────────────────────── */
 
-function buildListUrl(filters: CarQuery, page: number, pageSize: number): string {
+function buildListUrl(
+  filters: CarQuery,
+  page: number,
+  pageSize: number,
+  sourceCode: string = CONFIG.sourceCode,
+): string {
   const url = new URL(CONFIG.vehiclesPath, `${CONFIG.baseUrl}/`);
   const p = url.searchParams;
   // Live catalog_api pagination.
@@ -143,7 +148,7 @@ function buildListUrl(filters: CarQuery, page: number, pageSize: number): string
   p.set('page_size', String(pageSize));
   p.set('available_only', String(CONFIG.availableOnly));
   // Restrict to one source (e.g. Encar / South Korea) when configured.
-  if (CONFIG.sourceCode) p.set('source_code', CONFIG.sourceCode);
+  if (sourceCode) p.set('source_code', sourceCode);
   // Best-effort upstream filters (ignored gracefully if unsupported —
   // the storefront also filters locally in our own search engine).
   if (filters.brand) p.set('brand', filters.brand);
@@ -207,6 +212,7 @@ async function fetchRaw(
   filters: CarQuery,
   page: number,
   pageSize: number,
+  sourceCode: string = CONFIG.sourceCode,
 ): Promise<RawResult> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (CONFIG.apiKey) headers.Authorization = `Bearer ${CONFIG.apiKey}`;
@@ -216,7 +222,7 @@ async function fetchRaw(
 
   let res: Response;
   try {
-    res = await fetch(buildListUrl(filters, page, pageSize), {
+    res = await fetch(buildListUrl(filters, page, pageSize, sourceCode), {
       headers,
       cache: 'no-store',
       signal: controller.signal,
@@ -568,24 +574,38 @@ export async function fetchCars(query: CarQuery = {}): Promise<FetchCarsResult> 
   }
 }
 
+/** Pull up to `cap` vehicles by paging through the catalog for one source. */
+async function pullPages(cap: number, sourceCode: string): Promise<ProviderVehicle[]> {
+  const collected: ProviderVehicle[] = [];
+  let page = 1;
+  const maxPages = Math.ceil(cap / CONFIG.pageSize) + 1;
+  while (collected.length < cap && page <= maxPages) {
+    const { vehicles, hasNext } = await fetchRaw({}, page, CONFIG.pageSize, sourceCode);
+    if (!vehicles.length) break;
+    collected.push(...vehicles.map(mapToProviderVehicle));
+    if (!hasNext) break;
+    page += 1;
+  }
+  return collected;
+}
+
 /** Provider adapter for the sync engine — paginates the full filtered set. */
 export const carapisProvider: VehicleProvider = {
   id: 'carapis',
   displayName: 'Carapis (Encar)',
   async fetchInventory(options?: FetchOptions): Promise<ProviderVehicle[]> {
     const cap = Math.min(options?.limit ?? CONFIG.maxVehicles, CONFIG.maxVehicles);
-    const collected: ProviderVehicle[] = [];
 
     try {
-      let page = 1;
-      const maxPages = Math.ceil(cap / CONFIG.pageSize) + 1;
-      // Bounded pagination — never loops beyond the configured cap.
-      while (collected.length < cap && page <= maxPages) {
-        const { vehicles, hasNext } = await fetchRaw({}, page, CONFIG.pageSize);
-        if (!vehicles.length) break;
-        collected.push(...vehicles.map(mapToProviderVehicle));
-        if (!hasNext) break;
-        page += 1;
+      let collected = await pullPages(cap, CONFIG.sourceCode);
+      // Safety net: if a source filter (e.g. "encar") yields nothing — because
+      // the value is wrong or that source isn't in the plan — retry unfiltered
+      // so the storefront is never empty.
+      if (collected.length === 0 && CONFIG.sourceCode) {
+        console.warn(
+          `[carapis] source_code="${CONFIG.sourceCode}" returned 0 vehicles — retrying without the filter.`,
+        );
+        collected = await pullPages(cap, '');
       }
       return collected.slice(0, cap);
     } catch (err) {
