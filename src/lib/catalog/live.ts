@@ -9,6 +9,8 @@
  * The exact same code path is exercised in offline dev (it serves the bundled
  * snapshot), so it is not untested when deployed with a real key.
  */
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
@@ -79,22 +81,44 @@ function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
 let cache: { at: number; items: Vehicle[] } | null = null;
 let inflight: Promise<Vehicle[]> | null = null;
 
-/** Load (and cache) the full priced catalogue from the provider. */
-async function loadAll(): Promise<Vehicle[]> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.items;
-  if (inflight) return inflight;
+// Persist the catalogue to disk so it survives server restarts and rate limits:
+// after a single successful load, the storefront is never empty again.
+const CACHE_DIR = join(process.cwd(), '.cache');
+const CACHE_FILE = join(CACHE_DIR, 'live-inventory.json');
 
+function readDisk(): { at: number; items: Vehicle[] } | null {
+  try {
+    const parsed = JSON.parse(readFileSync(CACHE_FILE, 'utf8'));
+    if (Array.isArray(parsed?.items) && parsed.items.length) return parsed;
+  } catch {
+    /* no cache file yet */
+  }
+  return null;
+}
+
+function writeDisk(items: Vehicle[]): void {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify({ at: Date.now(), items }));
+  } catch {
+    /* best effort */
+  }
+}
+
+/** Fetch fresh data from the provider and update both caches. */
+function refresh(): Promise<Vehicle[]> {
+  if (inflight) return inflight;
   inflight = carapisProvider
     .fetchInventory({ limit: LIVE_LIMIT })
     .then((pvs) => {
       const items = pvs.map(toVehicle);
-      // Only replace the cache with a non-empty result.
-      if (items.length) cache = { at: Date.now(), items };
+      if (items.length) {
+        cache = { at: Date.now(), items };
+        writeDisk(items);
+      }
       return cache?.items ?? items;
     })
     .catch((err) => {
-      // On a failed refresh (e.g. rate limit) keep serving the last good data
-      // instead of emptying the storefront.
       console.warn(
         '[catalog] live refresh failed — serving cached data:',
         err instanceof Error ? err.message : err,
@@ -104,8 +128,22 @@ async function loadAll(): Promise<Vehicle[]> {
     .finally(() => {
       inflight = null;
     });
-
   return inflight;
+}
+
+/** Load the catalogue: memory → disk → provider, always serving what we have. */
+async function loadAll(): Promise<Vehicle[]> {
+  // Warm the in-memory cache from disk on first use.
+  if (!cache) cache = readDisk();
+
+  if (cache) {
+    // Refresh in the background when stale, but never make the request block.
+    if (Date.now() - cache.at >= TTL_MS) void refresh();
+    return cache.items;
+  }
+
+  // Nothing cached anywhere yet — must fetch (blocking) at least once.
+  return refresh();
 }
 
 /* ── In-memory query helpers ─────────────────────────────────────────────── */

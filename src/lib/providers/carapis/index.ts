@@ -577,6 +577,7 @@ function cleanDescription(s: string): string {
 /** Fetch the full detail record for one vehicle (rich specs + description). */
 export async function fetchVehicleDetail(id: string): Promise<ProviderVehicle | null> {
   if (!id) return null;
+  if (Date.now() < rateLimitedUntil) return null; // don't spend requests while capped
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (CONFIG.apiKey) headers.Authorization = `Bearer ${CONFIG.apiKey}`;
 
