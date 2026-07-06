@@ -49,8 +49,12 @@ const CONFIG = {
    * set CARAPIS_SOURCE_CODE=encar to show only Korean (Encar) vehicles.
    */
   sourceCode: (process.env.CARAPIS_SOURCE_CODE ?? 'encar').trim(),
-  /** Include sold/unavailable listings too (matches the live default). */
-  availableOnly: process.env.CARAPIS_AVAILABLE_ONLY === 'true',
+  /**
+   * Only currently-available listings. Defaults to true — it is both the right
+   * subset for a storefront and a much faster query than the full history.
+   * Set CARAPIS_AVAILABLE_ONLY=false to include sold vehicles too.
+   */
+  availableOnly: process.env.CARAPIS_AVAILABLE_ONLY !== 'false',
   /** KRW → EUR conversion rate, shared with the pricing engine. */
   fxKrwToEur: Number(
     process.env.CARAPIS_KRW_EUR_RATE ?? process.env.PRICING_FX_KRW_EUR ?? 0.00069,
@@ -61,8 +65,8 @@ const CONFIG = {
   demoMarkupEur: Number(process.env.PRICING_DEMO_MARKUP_EUR ?? 0),
   /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
   maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 600),
-  pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 50),
-  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 20000),
+  pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 40),
+  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 35000),
   /**
    * When the API is unreachable AND no key is configured (local/offline dev),
    * fall back to the bundled snapshot so the platform is never empty. Disable
