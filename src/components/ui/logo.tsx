@@ -1,9 +1,15 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * AUTO CONNECT wordmark. Minimal, geometric, confident — the red accent is the
- * only colour used, in keeping with the brand system.
+ * AUTO CONNECT logo.
+ *
+ * Renders the brand image from `/logo.png` (drop your file into `public/`).
+ * If that file is missing or fails to load, it falls back gracefully to the
+ * built-in geometric wordmark — so the header is never broken.
  */
 export function Logo({
   className,
@@ -14,9 +20,18 @@ export function Logo({
   variant?: 'dark' | 'light';
   href?: string | null;
 }) {
+  const [imgOk, setImgOk] = useState(true);
   const color = variant === 'light' ? 'text-white' : 'text-ink';
 
-  const content = (
+  const content = imgOk ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo.png"
+      alt="AUTO CONNECT"
+      onError={() => setImgOk(false)}
+      className={cn('h-9 w-auto object-contain', className)}
+    />
+  ) : (
     <span
       className={cn(
         'inline-flex items-center gap-2.5 font-display font-semibold tracking-tightest',
@@ -47,7 +62,7 @@ export function Logo({
   if (href === null) return content;
 
   return (
-    <Link href={href} aria-label="AUTO CONNECT" className="inline-flex">
+    <Link href={href} aria-label="AUTO CONNECT" className="inline-flex items-center">
       {content}
     </Link>
   );

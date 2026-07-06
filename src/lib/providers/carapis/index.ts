@@ -43,6 +43,12 @@ const CONFIG = {
    */
   vehiclesPath: process.env.CARAPIS_VEHICLES_PATH ?? '/apix/catalog_api/vehicles/',
   apiKey: process.env.CARAPIS_API_KEY ?? '',
+  /**
+   * Restrict to a single upstream source, e.g. "encar" for South-Korea-only
+   * inventory. Empty = all sources. The live catalog aggregates many markets;
+   * set CARAPIS_SOURCE_CODE=encar to show only Korean (Encar) vehicles.
+   */
+  sourceCode: (process.env.CARAPIS_SOURCE_CODE ?? '').trim(),
   /** Include sold/unavailable listings too (matches the live default). */
   availableOnly: process.env.CARAPIS_AVAILABLE_ONLY === 'true',
   /** KRW → EUR conversion rate, shared with the pricing engine. */
@@ -136,6 +142,8 @@ function buildListUrl(filters: CarQuery, page: number, pageSize: number): string
   p.set('page', String(page));
   p.set('page_size', String(pageSize));
   p.set('available_only', String(CONFIG.availableOnly));
+  // Restrict to one source (e.g. Encar / South Korea) when configured.
+  if (CONFIG.sourceCode) p.set('source_code', CONFIG.sourceCode);
   // Best-effort upstream filters (ignored gracefully if unsupported —
   // the storefront also filters locally in our own search engine).
   if (filters.brand) p.set('brand', filters.brand);
@@ -389,6 +397,19 @@ function titleCase(s: string): string {
   return s.replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
 }
 
+// Proper casing for brands the title-caser would otherwise mangle.
+const BRAND_FIX: Record<string, string> = {
+  bmw: 'BMW', kia: 'Kia', mg: 'MG', ds: 'DS', gmc: 'GMC', byd: 'BYD',
+  'mercedes-benz': 'Mercedes-Benz', benz: 'Mercedes-Benz', vw: 'Volkswagen',
+  'land rover': 'Land Rover', 'ssangyong': 'SsangYong', kg: 'KG Mobility',
+};
+
+function normalizeBrand(v: unknown): string {
+  const raw = str(v).trim();
+  if (!raw) return '';
+  return BRAND_FIX[raw.toLowerCase()] ?? titleCase(raw);
+}
+
 /* ── Enum glossaries (for the DB / sync path) ────────────────────────────── */
 
 function enumFuel(v: unknown): FuelType {
@@ -432,7 +453,7 @@ function enumBody(v: unknown): BodyType {
 /* ── Mappers ─────────────────────────────────────────────────────────────── */
 
 // Field readers matched to the live catalog_api shape (with tolerant aliases).
-const readBrand = (raw: RawVehicle) => titleCase(str(pick(raw, 'brand_name', 'brand', 'manufacturer', 'make')));
+const readBrand = (raw: RawVehicle) => normalizeBrand(pick(raw, 'brand_name', 'brand', 'manufacturer', 'make'));
 const readModel = (raw: RawVehicle) => str(pick(raw, 'model_name', 'model'));
 const readYear = (raw: RawVehicle) => int(pick(raw, 'year', 'model_year'));
 const readMileage = (raw: RawVehicle) => int(pick(raw, 'mileage', 'mileage_km', 'odometer', 'km'));
