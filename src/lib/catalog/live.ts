@@ -26,7 +26,7 @@ import type {
 } from '@/types/vehicle';
 import type { VehicleQuery } from '@/lib/search/query';
 
-const TTL_MS = Number(process.env.CATALOG_LIVE_TTL_MS ?? 300_000);
+const TTL_MS = Number(process.env.CATALOG_LIVE_TTL_MS ?? 1_800_000);
 const LIVE_LIMIT = Number(process.env.CATALOG_LIVE_LIMIT ?? 40);
 // Fixed epoch so per-item timestamps are stable across renders (order-based).
 const EPOCH = Date.UTC(2026, 0, 1);
@@ -79,7 +79,7 @@ function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
 let cache: { at: number; items: Vehicle[] } | null = null;
 let inflight: Promise<Vehicle[]> | null = null;
 
-/** Load (and briefly cache) the full priced catalogue from the provider. */
+/** Load (and cache) the full priced catalogue from the provider. */
 async function loadAll(): Promise<Vehicle[]> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.items;
   if (inflight) return inflight;
@@ -88,8 +88,18 @@ async function loadAll(): Promise<Vehicle[]> {
     .fetchInventory({ limit: LIVE_LIMIT })
     .then((pvs) => {
       const items = pvs.map(toVehicle);
-      cache = { at: Date.now(), items };
-      return items;
+      // Only replace the cache with a non-empty result.
+      if (items.length) cache = { at: Date.now(), items };
+      return cache?.items ?? items;
+    })
+    .catch((err) => {
+      // On a failed refresh (e.g. rate limit) keep serving the last good data
+      // instead of emptying the storefront.
+      console.warn(
+        '[catalog] live refresh failed — serving cached data:',
+        err instanceof Error ? err.message : err,
+      );
+      return cache?.items ?? [];
     })
     .finally(() => {
       inflight = null;

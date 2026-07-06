@@ -211,6 +211,10 @@ interface RawResult {
   rateLimit: RateLimit;
 }
 
+// While rate-limited, we stop hitting the API until this timestamp — the caller
+// serves cached data instead. This prevents a 429 storm from the free-tier cap.
+let rateLimitedUntil = 0;
+
 /** Core fetch. Adds Bearer auth only when a key exists (Free Tier needs none). */
 async function fetchRaw(
   filters: CarQuery,
@@ -218,6 +222,14 @@ async function fetchRaw(
   pageSize: number,
   sourceCode: string = CONFIG.sourceCode,
 ): Promise<RawResult> {
+  if (Date.now() < rateLimitedUntil) {
+    throw new CarapisError(
+      'RATE_LIMIT_EXCEEDED',
+      'Në pritje pas kufirit të kërkesave',
+      429,
+    );
+  }
+
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (CONFIG.apiKey) headers.Authorization = `Bearer ${CONFIG.apiKey}`;
 
@@ -260,6 +272,11 @@ async function fetchRaw(
     }
     const kind = classifyStatus(res.status, code);
     const retryAfter = Number(res.headers.get('Retry-After')) || rateLimit.reset;
+    if (kind === 'RATE_LIMIT_EXCEEDED') {
+      // Back off for a minute (or the server's hint, capped) before trying again.
+      const waitMs = Math.min(Math.max((retryAfter || 60) * 1000, 60_000), 120_000);
+      rateLimitedUntil = Date.now() + waitMs;
+    }
     throw new CarapisError(kind, `Carapis ${res.status}: ${message}`, res.status, retryAfter);
   }
 
@@ -664,15 +681,15 @@ export const carapisProvider: VehicleProvider = {
         try {
           collected = await pullPages(cap, CONFIG.sourceCode);
         } catch (e) {
+          // Never retry on a rate limit — that only makes it worse. Propagate so
+          // the caller serves cached data.
+          if (e instanceof CarapisError && e.code === 'RATE_LIMIT_EXCEEDED') throw e;
           console.warn(
             `[carapis] source="${CONFIG.sourceCode}" failed (${e instanceof Error ? e.message : e}) — retrying without the filter.`,
           );
           collected = [];
         }
         if (collected.length === 0) {
-          console.warn(
-            `[carapis] source="${CONFIG.sourceCode}" returned no vehicles — retrying without the filter.`,
-          );
           collected = await pullPages(cap, '');
         }
       } else {
