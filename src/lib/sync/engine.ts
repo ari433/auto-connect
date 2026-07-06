@@ -21,6 +21,8 @@ function toVehicleData(
   v: ProviderVehicle,
 ): Prisma.VehicleUncheckedCreateInput {
   const breakdown = computePrice(v.priceKrw, getPricingConfig());
+  // When the provider gives a ready EUR price (USD source), use it directly.
+  const price = v.priceEur ?? breakdown.price;
 
   const images: VehicleImage[] = v.imageUrls.map((url, i) => ({
     url,
@@ -54,10 +56,10 @@ function toVehicleData(
     equipment: v.equipment,
     images: images as unknown as Prisma.InputJsonValue,
     description,
-    sourcePriceKrw: v.priceKrw,
-    landedCostEur: breakdown.landedCostEur,
-    price: breakdown.price,
-    marginEur: breakdown.marginEur,
+    sourcePriceKrw: v.priceKrw || null,
+    landedCostEur: v.priceEur ? null : breakdown.landedCostEur,
+    price,
+    marginEur: v.priceEur ? 0 : breakdown.marginEur,
     featured: v.featured ?? false,
     syncedAt: new Date(),
   };

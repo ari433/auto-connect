@@ -49,6 +49,8 @@ const CONFIG = {
   fxKrwToEur: Number(
     process.env.CARAPIS_KRW_EUR_RATE ?? process.env.PRICING_FX_KRW_EUR ?? 0.00069,
   ),
+  /** USD → EUR conversion rate (the live catalog prices in USD). */
+  fxUsdToEur: Number(process.env.PRICING_FX_USD_EUR ?? 0.92),
   /** Flat demo markup added to the customer-facing EUR price. */
   demoMarkupEur: Number(process.env.PRICING_DEMO_MARKUP_EUR ?? 0),
   /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
@@ -111,10 +113,12 @@ export interface RateLimit {
 type RawVehicle = Record<string, unknown>;
 
 interface RawEnvelope {
-  // Django REST Framework paginated shape (the live catalog_api).
+  // Live catalog_api paginated shape.
   count?: number;
+  page?: number;
+  pages?: number;
+  has_next?: boolean;
   next?: string | null;
-  previous?: string | null;
   results?: RawVehicle[];
   // Tolerated alternatives.
   success?: boolean;
@@ -156,7 +160,10 @@ function parseEnvelope(body: RawEnvelope): {
     body.vehicles ??
     (Array.isArray(body) ? (body as RawVehicle[]) : []);
   const total = body.count ?? body.data?.total ?? vehicles.length;
-  const hasNext = Boolean(body.next);
+  const hasNext =
+    body.has_next ??
+    Boolean(body.next) ??
+    (body.page != null && body.pages != null ? body.page < body.pages : false);
   return { vehicles, total, hasNext };
 }
 
@@ -265,35 +272,62 @@ function toIso(v: unknown): string {
   return Number.isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString();
 }
 
+/** Resolve a possibly-relative media path against the Carapis host. */
+function resolveUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/')) return `${CONFIG.baseUrl}${raw}`;
+  return raw;
+}
+
+/** Pull a single URL out of a photo entry (string or object). */
+function photoUrl(item: unknown): string | null {
+  if (typeof item === 'string') return resolveUrl(item);
+  if (item && typeof item === 'object') {
+    const o = item as Record<string, unknown>;
+    return (
+      resolveUrl(o.url) ??
+      resolveUrl(o.original_url) ??
+      resolveUrl(o.thumb_url) ??
+      resolveUrl(o.src) ??
+      resolveUrl(o.full) ??
+      resolveUrl(o.large)
+    );
+  }
+  return null;
+}
+
 function extractImages(raw: RawVehicle): string[] {
-  const src = pick(
-    raw,
-    'images',
-    'photos',
-    'image_urls',
-    'imageUrls',
-    'pictures',
-    'gallery',
-    'image',
-  );
   const out: string[] = [];
-  const push = (item: unknown) => {
-    if (!item) return;
-    if (typeof item === 'string') out.push(item);
-    else if (typeof item === 'object') {
-      const o = item as Record<string, unknown>;
-      const url = o.url ?? o.src ?? o.full ?? o.original ?? o.large ?? o.href;
-      if (typeof url === 'string') out.push(url);
+  // Prefer the main thumbnail first (Carapis-hosted, reliable), then photos.
+  const main = photoUrl(pick(raw, 'thumb', 'main_image'));
+  if (main) out.push(main);
+
+  const src = pick(raw, 'photos', 'images', 'image_urls', 'pictures', 'gallery');
+  if (Array.isArray(src)) {
+    for (const item of src) {
+      const url = photoUrl(item);
+      if (url) out.push(url);
     }
-  };
-  if (Array.isArray(src)) src.forEach(push);
-  else if (typeof src === 'string') src.split(',').map((s) => s.trim()).forEach(push);
-  return out.filter(Boolean);
+  } else if (typeof src === 'string') {
+    for (const s of src.split(',')) {
+      const url = resolveUrl(s.trim());
+      if (url) out.push(url);
+    }
+  }
+
+  // De-duplicate while preserving order.
+  return [...new Set(out)];
 }
 
 function eur(priceKrw: number): number {
   // Demo markup is added to the customer-facing EUR figure.
   return Math.round(priceKrw * CONFIG.fxKrwToEur) + CONFIG.demoMarkupEur;
+}
+
+/** Convert a USD listing price to the final customer EUR price. */
+function usdToEur(priceUsd: number): number {
+  return Math.round(priceUsd * CONFIG.fxUsdToEur) + CONFIG.demoMarkupEur;
 }
 
 /** Convert a KRW amount to EUR using the configured rate. */
@@ -346,8 +380,9 @@ const COLOR_GLOSSARY: [RegExp, string][] = [
 
 function albanianColor(v: unknown): string {
   const k = normKey(v);
+  if (!k || k === 'unknown' || k === 'other' || k === 'n/a') return 'E papërcaktuar';
   for (const [re, label] of COLOR_GLOSSARY) if (re.test(k)) return label;
-  return v ? titleCase(str(v)) : 'E papërcaktuar';
+  return titleCase(str(v));
 }
 
 function titleCase(s: string): string {
@@ -396,57 +431,74 @@ function enumBody(v: unknown): BodyType {
 
 /* ── Mappers ─────────────────────────────────────────────────────────────── */
 
+// Field readers matched to the live catalog_api shape (with tolerant aliases).
+const readBrand = (raw: RawVehicle) => titleCase(str(pick(raw, 'brand_name', 'brand', 'manufacturer', 'make')));
+const readModel = (raw: RawVehicle) => str(pick(raw, 'model_name', 'model'));
+const readYear = (raw: RawVehicle) => int(pick(raw, 'year', 'model_year'));
+const readMileage = (raw: RawVehicle) => int(pick(raw, 'mileage', 'mileage_km', 'odometer', 'km'));
+const readPriceUsd = (raw: RawVehicle) => int(pick(raw, 'price_usd', 'price', 'price_krw'));
+const readFuel = (raw: RawVehicle) => pick(raw, 'fuel_type', 'fuel');
+const readTransmission = (raw: RawVehicle) => pick(raw, 'transmission', 'gearbox');
+const readBody = (raw: RawVehicle) => pick(raw, 'body_type', 'body', 'car_type');
+const readColor = (raw: RawVehicle) => pick(raw, 'color', 'exterior_color', 'colour');
+const readAddedAt = (raw: RawVehicle) =>
+  pick(raw, 'first_seen_at', 'created_at', 'listed_at', 'last_seen_at');
+
 /** Raw Carapis vehicle → the Albanian `Car` contract served to the frontend. */
 export function mapToCar(raw: RawVehicle): Car {
-  const priceKRW = int(pick(raw, 'price', 'price_krw', 'priceKrw'));
-  const encarUrl = str(pick(raw, 'url', 'detail_url', 'source_url', 'encar_url', 'encarUrl')) || undefined;
+  const priceUsd = readPriceUsd(raw);
   return {
     id: str(pick(raw, 'id', 'vehicle_id', 'vin')),
-    brand: str(pick(raw, 'brand', 'manufacturer', 'make')),
-    model: str(pick(raw, 'model', 'model_name')),
-    year: int(pick(raw, 'year', 'model_year')),
-    priceKRW,
-    priceEUR: eur(priceKRW),
-    mileageKm: int(pick(raw, 'mileage', 'mileage_km', 'odometer', 'km')),
-    fuel: albanianFuel(pick(raw, 'fuel_type', 'fuel', 'fuelType')),
-    transmission: albanianTransmission(pick(raw, 'transmission', 'gearbox')),
-    color: albanianColor(pick(raw, 'color', 'exterior_color', 'colour')),
+    brand: readBrand(raw),
+    model: readModel(raw),
+    year: readYear(raw),
+    // priceKRW keeps the source figure (USD) for reference/sorting.
+    priceKRW: priceUsd,
+    priceEUR: usdToEur(priceUsd),
+    mileageKm: readMileage(raw),
+    fuel: albanianFuel(readFuel(raw)),
+    transmission: albanianTransmission(readTransmission(raw)),
+    color: albanianColor(readColor(raw)),
     images: extractImages(raw),
-    addedAt: toIso(pick(raw, 'created_at', 'createdAt', 'listed_at', 'registered_at')),
-    encarUrl,
+    addedAt: toIso(readAddedAt(raw)),
+    encarUrl: str(pick(raw, 'source_url', 'url', 'detail_url')) || undefined,
   };
 }
 
-/** Raw Carapis vehicle → the richer `ProviderVehicle` used by the sync engine. */
+/** Raw Carapis vehicle → the richer `ProviderVehicle` used everywhere else. */
 export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
   const id = str(pick(raw, 'id', 'vehicle_id', 'vin'));
-  const priceKrw = int(pick(raw, 'price', 'price_krw', 'priceKrw'));
+  const priceUsd = readPriceUsd(raw);
   const engineCc = int(pick(raw, 'displacement', 'engine_cc', 'engine_volume'), 0) || undefined;
   const horsepower = int(pick(raw, 'horsepower', 'power', 'hp'), 0) || undefined;
   const options = pick(raw, 'options', 'equipment', 'features');
+  const variant = str(pick(raw, 'trim', 'grade', 'badge', 'variant')) || undefined;
 
   return {
     ref: id,
     vin: str(pick(raw, 'vin')) || `CARAPIS-${id}`,
-    brand: str(pick(raw, 'brand', 'manufacturer', 'make')),
-    model: str(pick(raw, 'model', 'model_name')),
-    variant: str(pick(raw, 'trim', 'grade', 'badge', 'variant')) || undefined,
-    year: int(pick(raw, 'year', 'model_year')),
-    mileageKm: int(pick(raw, 'mileage', 'mileage_km', 'odometer', 'km')),
-    fuel: enumFuel(pick(raw, 'fuel_type', 'fuel')),
-    transmission: enumTransmission(pick(raw, 'transmission', 'gearbox')),
+    brand: readBrand(raw),
+    model: readModel(raw),
+    variant,
+    year: readYear(raw),
+    mileageKm: readMileage(raw),
+    fuel: enumFuel(readFuel(raw)),
+    transmission: enumTransmission(readTransmission(raw)),
     drive: enumDrive(pick(raw, 'drive', 'drivetrain', 'driveline')),
-    bodyType: enumBody(pick(raw, 'body_type', 'body', 'car_type')),
+    bodyType: enumBody(readBody(raw)),
     engineLabel:
       str(pick(raw, 'engine', 'engine_name')) ||
-      (engineCc ? `${(engineCc / 1000).toFixed(1)}L` : albanianFuel(pick(raw, 'fuel_type', 'fuel'))),
+      variant ||
+      (engineCc ? `${(engineCc / 1000).toFixed(1)}L` : albanianFuel(readFuel(raw))),
     engineCc,
     horsepower,
-    exteriorColor: albanianColor(pick(raw, 'color', 'exterior_color')),
+    exteriorColor: albanianColor(readColor(raw)),
     interiorColor: pick(raw, 'interior_color') ? albanianColor(pick(raw, 'interior_color')) : undefined,
     doors: int(pick(raw, 'doors'), 0) || undefined,
     seats: int(pick(raw, 'seats', 'passengers'), 0) || undefined,
-    priceKrw,
+    priceKrw: 0,
+    // Source prices are USD → convert directly; the pricing engine is bypassed.
+    priceEur: usdToEur(priceUsd),
     imageUrls: extractImages(raw),
     equipment: Array.isArray(options) ? options.map((o) => str(o)).filter(Boolean) : [],
     conditionNotes: str(pick(raw, 'description', 'condition')) || undefined,

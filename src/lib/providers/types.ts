@@ -34,8 +34,14 @@ export interface ProviderVehicle {
   interiorColor?: string;
   doors?: number;
   seats?: number;
-  /** Listing price in the source currency (South Korean won). */
+  /** Listing price in the source currency (South Korean won), when known. */
   priceKrw: number;
+  /**
+   * Final customer-facing price in EUR, when the provider already gives a
+   * usable amount (e.g. a USD listing converted at the configured rate). When
+   * set, the pricing engine is bypassed and this value is used directly.
+   */
+  priceEur?: number;
   imageUrls: string[];
   equipment: string[];
   /** Provider-side condition/notes used to build our own description. */

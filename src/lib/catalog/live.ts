@@ -32,7 +32,9 @@ const LIVE_LIMIT = Number(process.env.CATALOG_LIVE_LIMIT ?? 300);
 const EPOCH = Date.UTC(2026, 0, 1);
 
 function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
-  const price = computePrice(pv.priceKrw, getPricingConfig()).price;
+  // Use the provider's EUR price directly when given (USD source), otherwise
+  // run the KRW landed-cost pricing engine.
+  const price = pv.priceEur ?? computePrice(pv.priceKrw, getPricingConfig()).price;
   const images: VehicleImage[] = pv.imageUrls.map((url, i) => ({
     url,
     alt: `${pv.brand} ${pv.model}${pv.variant ? ` ${pv.variant}` : ''} — foto ${i + 1}`,
