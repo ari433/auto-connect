@@ -9,7 +9,7 @@
  * The exact same code path is exercised in offline dev (it serves the bundled
  * snapshot), so it is not untested when deployed with a real key.
  */
-import { carapisProvider } from '@/lib/providers/carapis';
+import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug } from '@/lib/vehicles/slug';
 import {
@@ -197,9 +197,22 @@ export async function latestLive(limit = 8): Promise<Vehicle[]> {
   return sortItems(all, 'newest').slice(0, limit);
 }
 
+const detailCache = new Map<string, { at: number; vehicle: Vehicle }>();
+
 export async function bySlugLive(slug: string): Promise<Vehicle | null> {
   const all = await loadAll();
-  return all.find((v) => v.slug === slug) ?? null;
+  const base = all.find((v) => v.slug === slug);
+  if (!base) return null;
+
+  // Serve a cached enriched record if fresh.
+  const cached = detailCache.get(base.id);
+  if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
+
+  // Enrich with the detail endpoint: full specs, description and all photos.
+  const detail = await fetchVehicleDetail(base.id);
+  const vehicle = detail ? { ...toVehicle(detail, 0), slug: base.slug, featured: base.featured } : base;
+  detailCache.set(base.id, { at: Date.now(), vehicle });
+  return vehicle;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {

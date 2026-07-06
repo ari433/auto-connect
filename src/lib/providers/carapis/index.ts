@@ -519,7 +519,7 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     mileageKm: readMileage(raw),
     fuel: enumFuel(readFuel(raw)),
     transmission: enumTransmission(readTransmission(raw)),
-    drive: enumDrive(pick(raw, 'drive', 'drivetrain', 'driveline')),
+    drive: enumDrive(pick(raw, 'drive_type', 'drive', 'drivetrain', 'driveline')),
     bodyType: enumBody(readBody(raw)),
     engineLabel:
       str(pick(raw, 'engine', 'engine_name')) ||
@@ -530,15 +530,47 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     exteriorColor: albanianColor(readColor(raw)),
     interiorColor: pick(raw, 'interior_color') ? albanianColor(pick(raw, 'interior_color')) : undefined,
     doors: int(pick(raw, 'doors'), 0) || undefined,
-    seats: int(pick(raw, 'seats', 'passengers'), 0) || undefined,
+    seats: int(pick(raw, 'seat_count', 'seats', 'passengers'), 0) || undefined,
     priceKrw: 0,
     // Source prices are USD → convert directly; the pricing engine is bypassed.
     priceEur: usdToEur(priceUsd),
     imageUrls: extractImages(raw),
     equipment: Array.isArray(options) ? options.map((o) => str(o)).filter(Boolean) : [],
-    conditionNotes: str(pick(raw, 'description', 'condition')) || undefined,
+    conditionNotes: cleanDescription(str(pick(raw, 'description', 'condition'))) || undefined,
     featured: false,
   };
+}
+
+/** Turn the provider's markdown description into clean, readable Albanian-page text. */
+function cleanDescription(s: string): string {
+  if (!s) return '';
+  return s
+    .replace(/\*\*/g, '')
+    .replace(/#{1,6}\s*/g, '\n\n')
+    .replace(/\s+-\s+/g, '\n• ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Fetch the full detail record for one vehicle (rich specs + description). */
+export async function fetchVehicleDetail(id: string): Promise<ProviderVehicle | null> {
+  if (!id) return null;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (CONFIG.apiKey) headers.Authorization = `Bearer ${CONFIG.apiKey}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CONFIG.timeoutMs);
+  try {
+    const url = `${CONFIG.baseUrl}${CONFIG.vehiclesPath}${encodeURIComponent(id)}/`;
+    const res = await fetch(url, { headers, cache: 'no-store', signal: controller.signal });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as RawVehicle;
+    return mapToProviderVehicle(raw);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ── Offline fallback (dev only, no key) ─────────────────────────────────── */

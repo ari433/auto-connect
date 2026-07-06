@@ -102,7 +102,9 @@ export default async function VehiclePage({
 
             <div className="mt-12">
               <h2 className="text-display-sm">Përshkrimi</h2>
-              <p className="mt-4 leading-relaxed text-ink-muted">{vehicle.description}</p>
+              <p className="mt-4 whitespace-pre-line leading-relaxed text-ink-muted">
+                {vehicle.description}
+              </p>
             </div>
 
             <div className="mt-12">
