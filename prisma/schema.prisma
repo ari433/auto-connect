@@ -1,0 +1,168 @@
+// AUTO CONNECT — data model
+// Vehicles are ingested by the sync engine from the import provider,
+// priced by the pricing engine, and served to the frontend via our own API.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FuelType {
+  BENZINE
+  DIESEL
+  HYBRID
+  PLUG_IN_HYBRID
+  ELECTRIC
+  LPG
+}
+
+enum Transmission {
+  AUTOMATIC
+  MANUAL
+  DUAL_CLUTCH
+  CVT
+}
+
+enum DriveType {
+  FWD
+  RWD
+  AWD
+  FOUR_WD
+}
+
+enum BodyType {
+  SEDAN
+  SUV
+  HATCHBACK
+  COUPE
+  WAGON
+  VAN
+  PICKUP
+  CONVERTIBLE
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RESERVED
+  IN_TRANSIT
+  SOLD
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+}
+
+enum LeadSource {
+  VEHICLE_INQUIRY
+  FINANCING
+  CONTACT_FORM
+  ASSISTANT
+  CALLBACK
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  // Reference to the record in the upstream provider (never exposed publicly).
+  sourceRef String   @unique
+
+  brand     String
+  model     String
+  variant   String?
+  year      Int
+  mileageKm Int
+
+  fuel         FuelType
+  transmission Transmission
+  drive        DriveType
+  bodyType     BodyType
+
+  engineLabel String
+  engineCc    Int?
+  horsepower  Int?
+
+  exteriorColor String
+  interiorColor String?
+  doors         Int?
+  seats         Int?
+
+  vin       String  @unique
+  equipment String[]
+  images    Json // VehicleImage[]
+
+  description String @db.Text
+
+  // Commercial data — admin only.
+  sourcePriceKrw Int?
+  landedCostEur  Int?
+  // Final customer price produced by the pricing engine.
+  price          Int
+  marginEur      Int    @default(0)
+
+  status   VehicleStatus @default(AVAILABLE)
+  featured Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  syncedAt  DateTime @default(now())
+
+  leads Lead[]
+
+  @@index([status, featured])
+  @@index([brand, model])
+  @@index([price])
+  @@index([year])
+}
+
+model Lead {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  message   String?    @db.Text
+  source    LeadSource @default(CONTACT_FORM)
+  status    LeadStatus @default(NEW)
+
+  // Optional financing context captured from the calculator.
+  downPayment Int?
+  termMonths  Int?
+
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  vehicleId String?
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SyncRun {
+  id        String     @id @default(cuid())
+  status    SyncStatus @default(RUNNING)
+  provider  String     @default("encar")
+  fetched   Int        @default(0)
+  created   Int        @default(0)
+  updated   Int        @default(0)
+  removed   Int        @default(0)
+  message   String?
+  startedAt DateTime   @default(now())
+  finishedAt DateTime?
+
+  @@index([startedAt])
+}
