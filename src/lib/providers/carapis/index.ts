@@ -578,16 +578,31 @@ export async function fetchCars(query: CarQuery = {}): Promise<FetchCarsResult> 
   }
 }
 
-/** Pull up to `cap` vehicles by paging through the catalog for one source. */
+/**
+ * Pull up to `cap` vehicles by paging through the catalog for one source.
+ * Self-healing: if the API rejects the page size (HTTP 400), shrink it and
+ * retry the same page — so it works whatever the upstream page_size cap is.
+ */
 async function pullPages(cap: number, sourceCode: string): Promise<ProviderVehicle[]> {
   const collected: ProviderVehicle[] = [];
+  let pageSize = Math.max(5, CONFIG.pageSize);
   let page = 1;
-  const maxPages = Math.ceil(cap / CONFIG.pageSize) + 1;
-  while (collected.length < cap && page <= maxPages) {
-    const { vehicles, hasNext } = await fetchRaw({}, page, CONFIG.pageSize, sourceCode);
-    if (!vehicles.length) break;
-    collected.push(...vehicles.map(mapToProviderVehicle));
-    if (!hasNext) break;
+  const maxRequests = 80; // hard backstop on total requests
+  for (let req = 0; collected.length < cap && req < maxRequests; req++) {
+    let result: RawResult;
+    try {
+      result = await fetchRaw({}, page, pageSize, sourceCode);
+    } catch (err) {
+      // Likely the page size is above the API's cap — halve it and retry.
+      if (err instanceof CarapisError && err.status === 400 && pageSize > 5) {
+        pageSize = Math.max(5, Math.floor(pageSize / 2));
+        continue;
+      }
+      throw err;
+    }
+    if (!result.vehicles.length) break;
+    collected.push(...result.vehicles.map(mapToProviderVehicle));
+    if (!result.hasNext) break;
     page += 1;
   }
   return collected;
