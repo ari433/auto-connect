@@ -294,14 +294,18 @@ function resolveUrl(raw: unknown): string | null {
   return raw;
 }
 
-/** Pull a single URL out of a photo entry (string or object). */
+/**
+ * Pull a single URL out of a photo entry (string or object).
+ * Prefer the real source photo (`original_url`, e.g. ci.encar.com) — that is the
+ * genuine Encar image — then fall back to the provider-hosted copy.
+ */
 function photoUrl(item: unknown): string | null {
   if (typeof item === 'string') return resolveUrl(item);
   if (item && typeof item === 'object') {
     const o = item as Record<string, unknown>;
     return (
-      resolveUrl(o.url) ??
       resolveUrl(o.original_url) ??
+      resolveUrl(o.url) ??
       resolveUrl(o.thumb_url) ??
       resolveUrl(o.src) ??
       resolveUrl(o.full) ??
