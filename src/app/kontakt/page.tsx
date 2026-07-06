@@ -1,13 +1,5 @@
 import type { Metadata } from 'next';
-import {
-  Clock,
-  Facebook,
-  Instagram,
-  Mail,
-  MapPin,
-  Navigation,
-  Phone,
-} from 'lucide-react';
+import { Clock, Instagram, Mail, MapPin, Navigation, Phone } from 'lucide-react';
 import { Section } from '@/components/ui/section';
 import { LeadForm } from '@/components/forms/lead-form';
 import { site } from '@/lib/site';
@@ -15,11 +7,9 @@ import { site } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Kontakt',
   description:
-    'Na kontaktoni për çdo pyetje rreth importit, financimit apo inventarit. Ekipi i AUTO CONNECT është në dispozicion me telefon, email dhe në vendndodhjen tonë në Milloshevë, Kosovë.',
+    'Na kontaktoni për çdo pyetje rreth importit apo inventarit. Ekipi i AUTO CONNECT është në dispozicion me telefon, email dhe në vendndodhjen tonë në Milloshevë, Kosovë.',
   alternates: { canonical: '/kontakt' },
 };
-
-const TIKTOK_LABEL = 'TikTok';
 
 export default function ContactPage() {
   return (
@@ -139,26 +129,7 @@ export default function ContactPage() {
                     className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink/25"
                   >
                     <Instagram className="h-4 w-4" />
-                    Instagram
-                  </a>
-                  <a
-                    href={site.social.facebook}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Facebook"
-                    className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink/25"
-                  >
-                    <Facebook className="h-4 w-4" />
-                    Facebook
-                  </a>
-                  <a
-                    href={site.social.tiktok}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={TIKTOK_LABEL}
-                    className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink/25"
-                  >
-                    {TIKTOK_LABEL}
+                    @autoo.connect
                   </a>
                 </div>
               </div>

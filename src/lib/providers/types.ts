@@ -34,6 +34,10 @@ export interface ProviderVehicle {
   interiorColor?: string;
   doors?: number;
   seats?: number;
+  generation?: string;
+  ownerCount?: number;
+  hasAccident?: boolean;
+  inspectionPassed?: boolean;
   /** Listing price in the source currency (South Korean won), when known. */
   priceKrw: number;
   /**

@@ -25,16 +25,13 @@ export const site = {
     { day: 'E diel', time: 'Me termin' },
   ],
   social: {
-    instagram: 'https://instagram.com/autoconnect',
-    facebook: 'https://facebook.com/autoconnect',
-    tiktok: 'https://tiktok.com/@autoconnect',
+    instagram: 'https://www.instagram.com/autoo.connect/',
   },
 } as const;
 
 /** Primary customer navigation. */
 export const mainNav = [
   { label: 'Inventari', href: '/inventari' },
-  { label: 'Financimi', href: '/financimi' },
   { label: 'Asistenti', href: '/asistenti' },
   { label: 'Rreth nesh', href: '/rreth-nesh' },
   { label: 'Kontakt', href: '/kontakt' },
@@ -50,12 +47,12 @@ export const footerNav = {
   Kompania: [
     { label: 'Rreth nesh', href: '/rreth-nesh' },
     { label: 'Procesi i importit', href: '/rreth-nesh#procesi' },
-    { label: 'Financimi', href: '/financimi' },
+    { label: 'Asistenti virtual', href: '/asistenti' },
     { label: 'Kontakt', href: '/kontakt' },
   ],
   Ndihmë: [
-    { label: 'Asistenti virtual', href: '/asistenti' },
     { label: 'Pyetje të shpeshta', href: '/rreth-nesh#faq' },
     { label: 'Garancioni', href: '/rreth-nesh#garancioni' },
+    { label: 'Të preferuarat', href: '/te-preferuarat' },
   ],
 } as const;

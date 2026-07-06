@@ -53,6 +53,10 @@ export interface Vehicle {
   interiorColor: string | null;
   doors: number | null;
   seats: number | null;
+  generation?: string | null;
+  ownerCount?: number | null;
+  hasAccident?: boolean | null;
+  inspectionPassed?: boolean | null;
   /** Final customer-facing price in EUR, from the pricing engine. */
   price: number;
   status: VehicleStatus;

@@ -531,6 +531,11 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     interiorColor: pick(raw, 'interior_color') ? albanianColor(pick(raw, 'interior_color')) : undefined,
     doors: int(pick(raw, 'doors'), 0) || undefined,
     seats: int(pick(raw, 'seat_count', 'seats', 'passengers'), 0) || undefined,
+    generation: str(pick(raw, 'generation')) || undefined,
+    ownerCount: int(pick(raw, 'owner_count'), 0) || undefined,
+    hasAccident: typeof pick(raw, 'has_accident') === 'boolean' ? (pick(raw, 'has_accident') as boolean) : undefined,
+    inspectionPassed:
+      typeof pick(raw, 'inspection_passed') === 'boolean' ? (pick(raw, 'inspection_passed') as boolean) : undefined,
     priceKrw: 0,
     // Source prices are USD → convert directly; the pricing engine is bypassed.
     priceEur: usdToEur(priceUsd),

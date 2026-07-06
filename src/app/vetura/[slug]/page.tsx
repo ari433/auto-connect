@@ -17,8 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Section, SectionHeader } from '@/components/ui/section';
 import { Gallery } from '@/components/vehicle/gallery';
 import { SpecGrid } from '@/components/vehicle/spec-grid';
-import { FinancingCalculator } from '@/components/vehicle/financing-calculator';
 import { FavoriteButton } from '@/components/favorites/favorite-button';
+import { describeVehicle } from '@/lib/vehicles/description';
 import { LeadForm } from '@/components/forms/lead-form';
 import { VehicleGrid } from '@/components/vehicle/vehicle-grid';
 import { VehicleJsonLd, BreadcrumbJsonLd } from '@/components/seo/json-ld';
@@ -102,8 +102,8 @@ export default async function VehiclePage({
 
             <div className="mt-12">
               <h2 className="text-display-sm">Përshkrimi</h2>
-              <p className="mt-4 whitespace-pre-line leading-relaxed text-ink-muted">
-                {vehicle.description}
+              <p className="mt-4 leading-relaxed text-ink-muted">
+                {describeVehicle(vehicle)}
               </p>
             </div>
 
@@ -186,10 +186,6 @@ export default async function VehiclePage({
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand" /> E inspektuar</span>
                 <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-brand" /> Import i garantuar</span>
               </div>
-            </div>
-
-            <div className="mt-6">
-              <FinancingCalculator price={vehicle.price} />
             </div>
           </div>
         </div>

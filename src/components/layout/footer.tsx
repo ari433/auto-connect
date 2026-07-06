@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Clock, Mail, MapPin, Phone } from 'lucide-react';
+import { Clock, Instagram, Mail, MapPin, Phone } from 'lucide-react';
 import { footerNav, site } from '@/lib/site';
 import { Logo } from '@/components/ui/logo';
 
@@ -35,6 +35,16 @@ export function Footer() {
                 {site.location.address}
               </p>
             </div>
+
+            <a
+              href={site.social.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center gap-2.5 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/40 hover:bg-white/5"
+            >
+              <Instagram className="h-4 w-4 text-brand" />
+              @autoo.connect
+            </a>
           </div>
 
           {Object.entries(footerNav).map(([heading, links]) => (

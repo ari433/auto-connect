@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Heart, Menu, Phone, X } from 'lucide-react';
+import { Heart, Instagram, Menu, Phone, X } from 'lucide-react';
 import { mainNav, site } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/ui/logo';
@@ -65,6 +65,16 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <a
+            href={site.social.instagram}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Instagram"
+            className="hidden h-10 w-10 place-items-center rounded-full text-ink transition-colors hover:bg-ink/[0.05] sm:grid"
+          >
+            <Instagram className="h-[1.15rem] w-[1.15rem]" />
+          </a>
+
           <Link
             href="/te-preferuarat"
             aria-label="Të preferuarat"
