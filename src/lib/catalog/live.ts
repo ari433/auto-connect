@@ -11,7 +11,7 @@
  */
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
-import { buildVehicleSlug } from '@/lib/vehicles/slug';
+import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
 import {
   bodyTypeLabels,
   fuelLabels,
@@ -200,31 +200,34 @@ export async function latestLive(limit = 8): Promise<Vehicle[]> {
 const detailCache = new Map<string, { at: number; vehicle: Vehicle }>();
 
 export async function bySlugLive(slug: string): Promise<Vehicle | null> {
+  const id = idFromSlug(slug);
+
+  // Fetch the vehicle directly by id — fast and independent of the list cache.
+  if (id) {
+    const cached = detailCache.get(id);
+    if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
+
+    const detail = await fetchVehicleDetail(id);
+    if (detail) {
+      const vehicle: Vehicle = { ...toVehicle(detail, 0), slug };
+      detailCache.set(id, { at: Date.now(), vehicle });
+      return vehicle;
+    }
+  }
+
+  // Fallback: look it up in the loaded listing.
   const all = await loadAll();
-  const base = all.find((v) => v.slug === slug);
-  if (!base) return null;
-
-  // Serve a cached enriched record if fresh.
-  const cached = detailCache.get(base.id);
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
-
-  // Enrich with the detail endpoint: full specs, description and all photos.
-  const detail = await fetchVehicleDetail(base.id);
-  const vehicle = detail ? { ...toVehicle(detail, 0), slug: base.slug, featured: base.featured } : base;
-  detailCache.set(base.id, { at: Date.now(), vehicle });
-  return vehicle;
+  return all.find((v) => v.slug === slug) ?? null;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {
-  const all = await loadAll();
-  return all
-    .filter(
-      (v) =>
-        v.id !== vehicle.id &&
-        (v.bodyType === vehicle.bodyType || v.brand === vehicle.brand),
-    )
-    .sort((a, b) => Number(b.featured) - Number(a.featured))
-    .slice(0, limit);
+  // Use only the already-loaded listing so the detail page never blocks on a
+  // fresh full fetch. If the cache is cold, simply show none.
+  const all = cache && Date.now() - cache.at < TTL_MS ? cache.items : [];
+  const related = all.filter(
+    (v) => v.id !== vehicle.id && (v.bodyType === vehicle.bodyType || v.brand === vehicle.brand),
+  );
+  return (related.length ? related : all.filter((v) => v.id !== vehicle.id)).slice(0, limit);
 }
 
 export async function allSlugsLive(): Promise<string[]> {

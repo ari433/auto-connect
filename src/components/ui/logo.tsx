@@ -20,15 +20,20 @@ export function Logo({
   variant?: 'dark' | 'light';
   href?: string | null;
 }) {
-  const [imgOk, setImgOk] = useState(true);
+  // Try a custom uploaded logo first, then the bundled designed logo, then the
+  // built-in wordmark — so a proper logo always shows.
+  const candidates = ['/logo.png', '/logo.svg'];
+  // On dark surfaces (footer) the designed logo's dark text wouldn't show, so
+  // use the white wordmark there; use the image logo on light surfaces (header).
+  const [idx, setIdx] = useState(variant === 'light' ? candidates.length : 0);
   const color = variant === 'light' ? 'text-white' : 'text-ink';
 
-  const content = imgOk ? (
+  const content = idx < candidates.length ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/logo.png"
+      src={candidates[idx]}
       alt="AUTO CONNECT"
-      onError={() => setImgOk(false)}
+      onError={() => setIdx((i) => i + 1)}
       className={cn('h-9 w-auto object-contain', className)}
     />
   ) : (

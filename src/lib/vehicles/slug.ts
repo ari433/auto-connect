@@ -11,6 +11,13 @@ export function buildVehicleSlug(v: {
   const parts = [v.brand, v.model, v.variant, String(v.year)]
     .filter(Boolean)
     .join(' ');
-  const suffix = v.ref.replace(/[^a-z0-9]/gi, '').slice(-5).toLowerCase();
-  return `${slugify(parts)}-${suffix}`;
+  // The full source id is carried after a `--` delimiter so the detail page can
+  // fetch the vehicle directly by id, without depending on the listing cache.
+  return `${slugify(parts)}--${v.ref.toLowerCase()}`;
+}
+
+/** Extract the source id from a slug produced by `buildVehicleSlug`. */
+export function idFromSlug(slug: string): string | null {
+  const i = slug.indexOf('--');
+  return i >= 0 ? slug.slice(i + 2) : null;
 }
