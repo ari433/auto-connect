@@ -60,8 +60,8 @@ const CONFIG = {
   /** Flat demo markup added to the customer-facing EUR price. */
   demoMarkupEur: Number(process.env.PRICING_DEMO_MARKUP_EUR ?? 0),
   /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
-  maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 1000),
-  pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 100),
+  maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 600),
+  pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 50),
   timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 20000),
   /**
    * When the API is unreachable AND no key is configured (local/offline dev),

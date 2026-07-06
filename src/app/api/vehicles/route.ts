@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
       );
     }
     console.error('[api/vehicles]', error);
-    return NextResponse.json({ error: 'Gabim i brendshëm' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Gabim i brendshëm', detail: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    );
   }
 }
