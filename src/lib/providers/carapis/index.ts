@@ -28,6 +28,7 @@ import type {
   VehicleProvider,
 } from '@/lib/providers/types';
 import { inventorySnapshot } from './fallback-dataset';
+import { computePriceFromEur, getPricingConfig } from '@/lib/pricing/engine';
 
 if (typeof window !== 'undefined') {
   throw new Error('The Carapis provider must never be imported on the client.');
@@ -370,9 +371,16 @@ function eur(priceKrw: number): number {
   return Math.round(priceKrw * CONFIG.fxKrwToEur) + CONFIG.demoMarkupEur;
 }
 
-/** Convert a USD listing price to the final customer EUR price. */
+/**
+ * Convert a USD listing price into the REAL customer price: source price →
+ * EUR, then through the same landed-cost pricing engine used for KRW listings
+ * (freight, customs duty, VAT, compliance, margin, rounding). This reflects
+ * actual import economics — not a flat markup — so cheap and expensive cars
+ * alike get a realistic, proportionate price.
+ */
 function usdToEur(priceUsd: number): number {
-  return Math.round(priceUsd * CONFIG.fxUsdToEur) + CONFIG.demoMarkupEur;
+  const sourcePriceEur = priceUsd * CONFIG.fxUsdToEur;
+  return computePriceFromEur(sourcePriceEur, getPricingConfig()).price;
 }
 
 /** Convert a KRW amount to EUR using the configured rate. */

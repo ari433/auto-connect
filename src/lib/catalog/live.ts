@@ -105,11 +105,17 @@ function writeDisk(items: Vehicle[]): void {
   }
 }
 
+// Cold start (nothing cached yet) fetches a small, fast batch so the very
+// first visitor isn't kept waiting. Background refreshes afterwards pull a
+// much larger batch — since those never block a request, growing the
+// catalogue towards the full Free Tier size (~1000) costs nothing in UX.
+const LIVE_TARGET = Number(process.env.CATALOG_LIVE_TARGET ?? 150);
+
 /** Fetch fresh data from the provider and update both caches. */
-function refresh(): Promise<Vehicle[]> {
+function refresh(limit: number): Promise<Vehicle[]> {
   if (inflight) return inflight;
   inflight = carapisProvider
-    .fetchInventory({ limit: LIVE_LIMIT })
+    .fetchInventory({ limit })
     .then((pvs) => {
       const items = pvs.map(toVehicle);
       if (items.length) {
@@ -131,6 +137,10 @@ function refresh(): Promise<Vehicle[]> {
   return inflight;
 }
 
+// Ensures we only kick off the one-time "grow to target" background fetch
+// once per server process, right after the small cold-start batch lands.
+let hasTriggeredGrowth = false;
+
 /** Load the catalogue: memory → disk → provider, always serving what we have. */
 async function loadAll(): Promise<Vehicle[]> {
   // Warm the in-memory cache from disk on first use.
@@ -138,12 +148,26 @@ async function loadAll(): Promise<Vehicle[]> {
 
   if (cache) {
     // Refresh in the background when stale, but never make the request block.
-    if (Date.now() - cache.at >= TTL_MS) void refresh();
+    // Background refreshes target the larger size — this is how the
+    // catalogue grows from the fast initial batch towards LIVE_TARGET.
+    if (Date.now() - cache.at >= TTL_MS) {
+      void refresh(LIVE_TARGET);
+    } else if (!hasTriggeredGrowth && cache.items.length < LIVE_TARGET) {
+      hasTriggeredGrowth = true;
+      void refresh(LIVE_TARGET);
+    }
     return cache.items;
   }
 
-  // Nothing cached anywhere yet — must fetch (blocking) at least once.
-  return refresh();
+  // Nothing cached anywhere yet — must fetch (blocking) at least once, so keep
+  // this batch small for a fast first paint. Immediately grow in the
+  // background afterwards, without making anyone wait for it.
+  const items = await refresh(LIVE_LIMIT);
+  if (!hasTriggeredGrowth) {
+    hasTriggeredGrowth = true;
+    void refresh(LIVE_TARGET);
+  }
+  return items;
 }
 
 /* ── In-memory query helpers ─────────────────────────────────────────────── */
@@ -295,8 +319,17 @@ export async function bySlugLive(slug: string): Promise<Vehicle | null> {
     return vehicle;
   });
 
-  const enriched = await withTimeout(enrichPromise, DETAIL_ENRICH_TIMEOUT_MS);
-  return enriched ?? base ?? null;
+  if (base) {
+    // We already have something real to show fast — cap the wait for extra
+    // detail so the page never hangs on it.
+    const enriched = await withTimeout(enrichPromise, DETAIL_ENRICH_TIMEOUT_MS);
+    return enriched ?? base;
+  }
+
+  // This vehicle isn't in the currently-loaded listing (e.g. a direct link to
+  // a car outside the cached batch) — there is nothing to fall back to, so
+  // it's worth waiting the full request timeout rather than giving up early.
+  return enrichPromise;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {
