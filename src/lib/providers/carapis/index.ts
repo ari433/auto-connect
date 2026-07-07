@@ -66,7 +66,7 @@ const CONFIG = {
   /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
   maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 600),
   pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 40),
-  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 35000),
+  timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 15000),
   /**
    * When the API is unreachable AND no key is configured (local/offline dev),
    * fall back to the bundled snapshot so the platform is never empty. Disable

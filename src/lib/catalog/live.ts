@@ -251,25 +251,52 @@ export async function latestLive(limit = 8): Promise<Vehicle[]> {
 
 const detailCache = new Map<string, { at: number; vehicle: Vehicle }>();
 
+// The detail page must never hang: enrichment (full specs) is attempted but
+// bounded — if it doesn't arrive quickly, we serve the base listing data
+// immediately instead of leaving the visitor staring at a blank page.
+const DETAIL_ENRICH_TIMEOUT_MS = Number(process.env.CATALOG_DETAIL_TIMEOUT_MS ?? 5000);
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
 export async function bySlugLive(slug: string): Promise<Vehicle | null> {
   const id = idFromSlug(slug);
 
-  // Fetch the vehicle directly by id — fast and independent of the list cache.
   if (id) {
     const cached = detailCache.get(id);
     if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
-
-    const detail = await fetchVehicleDetail(id);
-    if (detail) {
-      const vehicle: Vehicle = { ...toVehicle(detail, 0), slug };
-      detailCache.set(id, { at: Date.now(), vehicle });
-      return vehicle;
-    }
   }
 
-  // Fallback: look it up in the loaded listing.
+  // Base vehicle from the already-loaded listing — fast, no network, since the
+  // list was just shown. This is what renders if enrichment is slow.
   const all = await loadAll();
-  return all.find((v) => v.slug === slug) ?? null;
+  const base = id ? all.find((v) => v.id === id) : all.find((v) => v.slug === slug);
+  if (!id) return base ?? null;
+
+  // Try to enrich with the full detail record (specs, description), but cap the
+  // wait — a slow/rate-limited upstream must never block the page.
+  const enrichPromise = fetchVehicleDetail(id).then((detail) => {
+    if (!detail) return null;
+    const vehicle: Vehicle = { ...toVehicle(detail, 0), slug };
+    detailCache.set(id, { at: Date.now(), vehicle });
+    return vehicle;
+  });
+
+  const enriched = await withTimeout(enrichPromise, DETAIL_ENRICH_TIMEOUT_MS);
+  return enriched ?? base ?? null;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {
