@@ -24,9 +24,11 @@ import type {
 } from '@/types/vehicle';
 import type {
   FetchOptions,
+  ProviderDealer,
   ProviderVehicle,
   VehicleProvider,
 } from '@/lib/providers/types';
+import { applyMarketplaceMarkup } from '@/lib/pricing/marketplace';
 import { inventorySnapshot } from './fallback-dataset';
 
 if (typeof window !== 'undefined') {
@@ -61,11 +63,16 @@ const CONFIG = {
   ),
   /** USD → EUR conversion rate (the live catalog prices in USD). */
   fxUsdToEur: Number(process.env.PRICING_FX_USD_EUR ?? 0.92),
-  /** Flat demo markup added to the customer-facing EUR price. */
-  demoMarkupEur: Number(process.env.PRICING_DEMO_MARKUP_EUR ?? 0),
-  /** Upper bound pulled during a full sync (Free Tier ≈ latest 1000). */
+  /** Upper bound pulled during a live (in-memory) fetch. */
   maxVehicles: Number(process.env.CARAPIS_MAX_VEHICLES ?? 600),
   pageSize: Number(process.env.CARAPIS_PAGE_SIZE ?? 40),
+  /**
+   * Full-sync paging. The catalog endpoint caps page_size at 200, so a large
+   * page keeps the request count (and quota use) low: ~600 requests for the
+   * whole Encar catalogue. maxVehicles is effectively "everything" by default.
+   */
+  syncPageSize: Number(process.env.CARAPIS_SYNC_PAGE_SIZE ?? 200),
+  syncMaxVehicles: Number(process.env.CARAPIS_SYNC_MAX_VEHICLES ?? 200_000),
   timeoutMs: Number(process.env.CARAPIS_TIMEOUT_MS ?? 15000),
   /**
    * When the API is unreachable AND no key is configured (local/offline dev),
@@ -365,19 +372,27 @@ function extractImages(raw: RawVehicle): string[] {
   return [...new Set(out)];
 }
 
-function eur(priceKrw: number): number {
-  // Demo markup is added to the customer-facing EUR figure.
-  return Math.round(priceKrw * CONFIG.fxKrwToEur) + CONFIG.demoMarkupEur;
+/** Raw KRW → EUR (imported base price, before the marketplace markup). */
+function krwToEur(priceKrw: number): number {
+  return Math.round(priceKrw * CONFIG.fxKrwToEur);
 }
 
-/** Convert a USD listing price to the final customer EUR price. */
+/** Raw USD → EUR (imported base price, before the marketplace markup). */
 function usdToEur(priceUsd: number): number {
-  return Math.round(priceUsd * CONFIG.fxUsdToEur) + CONFIG.demoMarkupEur;
+  return Math.round(priceUsd * CONFIG.fxUsdToEur);
 }
 
-/** Convert a KRW amount to EUR using the configured rate. */
+/**
+ * Final customer-facing EUR price from a USD listing.
+ * The original selling price is never surfaced — only this adjusted figure is.
+ */
+function customerPriceFromUsd(priceUsd: number): number {
+  return applyMarketplaceMarkup(usdToEur(priceUsd));
+}
+
+/** Convert a KRW amount to the final customer-facing EUR price. */
 export function convertKrwToEur(priceKrw: number): number {
-  return eur(priceKrw);
+  return applyMarketplaceMarkup(krwToEur(priceKrw));
 }
 
 /* ── Glossaries: upstream value → Albanian label ─────────────────────────── */
@@ -455,7 +470,10 @@ function enumFuel(v: unknown): FuelType {
   if (/plug|플러그/.test(k)) return 'PLUG_IN_HYBRID';
   if (/hybrid|하이브리드/.test(k)) return 'HYBRID';
   if (/electric|\bev\b|전기/.test(k)) return 'ELECTRIC';
-  if (/lpg|gas|가스/.test(k)) return 'LPG';
+  // Petrol must be checked before LPG: "gasoline" contains "gas" and would
+  // otherwise be misclassified as LPG.
+  if (/gasolin|petrol|benzin|가솔린/.test(k)) return 'BENZINE';
+  if (/lpg|가스|\bgas\b/.test(k)) return 'LPG';
   return 'BENZINE';
 }
 
@@ -502,6 +520,41 @@ const readColor = (raw: RawVehicle) => pick(raw, 'color', 'exterior_color', 'col
 const readAddedAt = (raw: RawVehicle) =>
   pick(raw, 'first_seen_at', 'created_at', 'listed_at', 'last_seen_at');
 
+/**
+ * Read the selling dealer, tolerating the several shapes Carapis uses (a nested
+ * `dealer`/`seller` object, or flat `dealer_*` fields). Returns undefined when
+ * nothing is present — dealer information is shown only when it genuinely
+ * exists, never fabricated.
+ */
+function readDealer(raw: RawVehicle): ProviderDealer | undefined {
+  const nested = pick(raw, 'dealer', 'seller');
+  const src = nested && typeof nested === 'object' ? (nested as RawVehicle) : raw;
+
+  const name = str(pick(src, 'name', 'dealer_name', 'seller_name', 'shop_name')).trim();
+  const phone = str(
+    pick(src, 'phone', 'dealer_phone', 'seller_phone', 'tel', 'contact', 'phone_number'),
+  ).trim();
+  const location = str(
+    pick(
+      src,
+      'location',
+      'dealer_location',
+      'address',
+      'region',
+      'city',
+      'area',
+      'seller_location',
+    ),
+  ).trim();
+
+  if (!name && !phone && !location) return undefined;
+  return {
+    ...(name ? { name } : {}),
+    ...(phone ? { phone } : {}),
+    ...(location ? { location } : {}),
+  };
+}
+
 /** Raw Carapis vehicle → the Albanian `Car` contract served to the frontend. */
 export function mapToCar(raw: RawVehicle): Car {
   const priceUsd = readPriceUsd(raw);
@@ -512,7 +565,7 @@ export function mapToCar(raw: RawVehicle): Car {
     year: readYear(raw),
     // priceKRW keeps the source figure (USD) for reference/sorting.
     priceKRW: priceUsd,
-    priceEUR: usdToEur(priceUsd),
+    priceEUR: customerPriceFromUsd(priceUsd),
     mileageKm: readMileage(raw),
     fuel: albanianFuel(readFuel(raw)),
     transmission: albanianTransmission(readTransmission(raw)),
@@ -560,11 +613,13 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     inspectionPassed:
       typeof pick(raw, 'inspection_passed') === 'boolean' ? (pick(raw, 'inspection_passed') as boolean) : undefined,
     priceKrw: 0,
-    // Source prices are USD → convert directly; the pricing engine is bypassed.
-    priceEur: usdToEur(priceUsd),
+    // Source prices are USD → convert and apply the marketplace markup; the
+    // landed-cost pricing engine is bypassed.
+    priceEur: customerPriceFromUsd(priceUsd),
     imageUrls: extractImages(raw),
     equipment: Array.isArray(options) ? options.map((o) => str(o)).filter(Boolean) : [],
     conditionNotes: cleanDescription(str(pick(raw, 'description', 'condition'))) || undefined,
+    dealer: readDealer(raw),
     featured: false,
   };
 }
@@ -644,16 +699,24 @@ export async function fetchCars(query: CarQuery = {}): Promise<FetchCarsResult> 
 }
 
 /**
- * Pull up to `cap` vehicles by paging through the catalog for one source.
- * Self-healing: if the API rejects the page size (HTTP 400), shrink it and
- * retry the same page — so it works whatever the upstream page_size cap is.
+ * Page through the catalog for one source, yielding each page as a mapped
+ * batch. Self-healing: if the API rejects the page size (HTTP 400), shrink it
+ * and retry the same page — so it works whatever the upstream page_size cap is.
+ *
+ * Streaming (rather than collecting) lets the sync engine upsert page-by-page
+ * and hold only one page in memory at a time — essential for a 100k+ catalogue.
  */
-async function pullPages(cap: number, sourceCode: string): Promise<ProviderVehicle[]> {
-  const collected: ProviderVehicle[] = [];
-  let pageSize = Math.max(5, CONFIG.pageSize);
+async function* streamProviderPages(
+  cap: number,
+  sourceCode: string,
+  startPageSize: number,
+): AsyncGenerator<ProviderVehicle[], boolean> {
+  let pageSize = Math.max(5, Math.min(startPageSize, 200));
   let page = 1;
-  const maxRequests = 80; // hard backstop on total requests
-  for (let req = 0; collected.length < cap && req < maxRequests; req++) {
+  let emitted = 0;
+  // Generous ceiling so a runaway loop can't page forever, sized to the cap.
+  const maxRequests = Math.ceil(cap / Math.max(1, pageSize)) + 50;
+  for (let req = 0; emitted < cap && req < maxRequests; req++) {
     let result: RawResult;
     try {
       result = await fetchRaw({}, page, pageSize, sourceCode);
@@ -665,10 +728,24 @@ async function pullPages(cap: number, sourceCode: string): Promise<ProviderVehic
       }
       throw err;
     }
-    if (!result.vehicles.length) break;
-    collected.push(...result.vehicles.map(mapToProviderVehicle));
-    if (!result.hasNext) break;
+    if (!result.vehicles.length) return true; // exhausted the catalogue
+    const batch = result.vehicles.map(mapToProviderVehicle);
+    const room = cap - emitted;
+    const slice = batch.length > room ? batch.slice(0, room) : batch;
+    emitted += slice.length;
+    yield slice;
+    if (!result.hasNext) return true; // reached the last page — true end
     page += 1;
+  }
+  // Stopped on the cap or the request ceiling — NOT the true end of the feed.
+  return false;
+}
+
+/** Pull up to `cap` vehicles into memory (used by the live catalogue). */
+async function pullPages(cap: number, sourceCode: string): Promise<ProviderVehicle[]> {
+  const collected: ProviderVehicle[] = [];
+  for await (const batch of streamProviderPages(cap, sourceCode, CONFIG.pageSize)) {
+    collected.push(...batch);
   }
   return collected;
 }
@@ -681,27 +758,10 @@ export const carapisProvider: VehicleProvider = {
     const cap = Math.min(options?.limit ?? CONFIG.maxVehicles, CONFIG.maxVehicles);
 
     try {
-      let collected: ProviderVehicle[] = [];
-      // Try the configured source (e.g. "encar"). If that value is invalid or
-      // yields nothing, fall back to unfiltered so the storefront is never empty.
-      if (CONFIG.sourceCode) {
-        try {
-          collected = await pullPages(cap, CONFIG.sourceCode);
-        } catch (e) {
-          // Never retry on a rate limit — that only makes it worse. Propagate so
-          // the caller serves cached data.
-          if (e instanceof CarapisError && e.code === 'RATE_LIMIT_EXCEEDED') throw e;
-          console.warn(
-            `[carapis] source="${CONFIG.sourceCode}" failed (${e instanceof Error ? e.message : e}) — retrying without the filter.`,
-          );
-          collected = [];
-        }
-        if (collected.length === 0) {
-          collected = await pullPages(cap, '');
-        }
-      } else {
-        collected = await pullPages(cap, '');
-      }
+      // Strictly the configured source (e.g. "encar" = South Korea). No silent
+      // fallback to the global catalogue — a Korea-only storefront must never
+      // ingest worldwide inventory. If Encar fails, the cache/snapshot serves.
+      const collected = await pullPages(cap, CONFIG.sourceCode);
       return collected.slice(0, cap);
     } catch (err) {
       if (shouldFallback(err)) {
@@ -710,6 +770,16 @@ export const carapisProvider: VehicleProvider = {
       }
       throw err;
     }
+  },
+
+  async *streamInventory(options?: FetchOptions): AsyncGenerator<ProviderVehicle[], boolean> {
+    const cap = Math.min(options?.limit ?? CONFIG.syncMaxVehicles, CONFIG.syncMaxVehicles);
+    // Stream strictly the configured source (e.g. "encar" = South Korea only).
+    // There is deliberately NO fallback to the unfiltered global catalogue: a
+    // Korea-only storefront must never silently ingest worldwide inventory just
+    // because one request failed. On error the sync records partial/failed and
+    // the live cache keeps serving — never the wrong country.
+    return yield* streamProviderPages(cap, CONFIG.sourceCode, CONFIG.syncPageSize);
   },
 };
 
@@ -721,7 +791,7 @@ function providerVehicleToCar(v: ProviderVehicle): Car {
     model: v.model,
     year: v.year,
     priceKRW: v.priceKrw,
-    priceEUR: eur(v.priceKrw),
+    priceEUR: convertKrwToEur(v.priceKrw),
     mileageKm: v.mileageKm,
     fuel: albanianFuel(v.fuel),
     transmission: albanianTransmission(v.transmission),

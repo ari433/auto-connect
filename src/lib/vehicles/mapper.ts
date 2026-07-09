@@ -35,6 +35,10 @@ export function toPublicVehicle(v: PrismaVehicle): Vehicle {
     images: parseImages(v.images),
     equipment: v.equipment,
     description: v.description,
+    dealer:
+      v.dealerName || v.dealerPhone || v.dealerLocation
+        ? { name: v.dealerName, phone: v.dealerPhone, location: v.dealerLocation }
+        : null,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),
   };

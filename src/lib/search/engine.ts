@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { toPublicVehicle } from '@/lib/vehicles/mapper';
 import {
   bodyTypeLabels,
+  driveLabels,
   fuelLabels,
   transmissionLabels,
 } from '@/lib/labels';
@@ -36,6 +37,7 @@ function buildWhere(query: VehicleQuery): Prisma.VehicleWhereInput {
   if (query.transmission.length)
     where.transmission = { in: query.transmission as Transmission[] };
   if (query.drive.length) where.drive = { in: query.drive as DriveType[] };
+  if (query.color.length) where.exteriorColor = { in: query.color };
   if (query.featured) where.featured = true;
 
   if (query.minPrice != null || query.maxPrice != null) {
@@ -61,6 +63,7 @@ function buildWhere(query: VehicleQuery): Prisma.VehicleWhereInput {
           { brand: { contains: term, mode: 'insensitive' } },
           { model: { contains: term, mode: 'insensitive' } },
           { variant: { contains: term, mode: 'insensitive' } },
+          { engineLabel: { contains: term, mode: 'insensitive' } },
           { exteriorColor: { contains: term, mode: 'insensitive' } },
           { description: { contains: term, mode: 'insensitive' } },
         ],
@@ -118,11 +121,13 @@ export async function searchVehicles(
 export async function getFacets(): Promise<Facets> {
   const where: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES };
 
-  const [brands, bodyTypes, fuels, transmissions, agg] = await Promise.all([
+  const [brands, bodyTypes, fuels, transmissions, drives, colors, agg] = await Promise.all([
     prisma.vehicle.groupBy({ by: ['brand'], where, _count: true, orderBy: { brand: 'asc' } }),
     prisma.vehicle.groupBy({ by: ['bodyType'], where, _count: true }),
     prisma.vehicle.groupBy({ by: ['fuel'], where, _count: true }),
     prisma.vehicle.groupBy({ by: ['transmission'], where, _count: true }),
+    prisma.vehicle.groupBy({ by: ['drive'], where, _count: true }),
+    prisma.vehicle.groupBy({ by: ['exteriorColor'], where, _count: true }),
     prisma.vehicle.aggregate({
       where,
       _min: { price: true, year: true },
@@ -147,6 +152,12 @@ export async function getFacets(): Promise<Facets> {
       label: transmissionLabels[t.transmission] ?? t.transmission,
       count: t._count,
     })),
+    drives: drives
+      .map((d) => ({ value: d.drive, label: driveLabels[d.drive] ?? d.drive, count: d._count }))
+      .sort((a, b) => b.count - a.count),
+    colors: colors
+      .map((c) => ({ value: c.exteriorColor, label: c.exteriorColor, count: c._count }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
     priceRange: {
       min: agg._min.price ?? 0,
       max: agg._max.price ?? 0,

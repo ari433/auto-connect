@@ -14,8 +14,11 @@ import { join } from 'node:path';
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
+import { isListableVehicle } from '@/lib/vehicles/listable';
+import { enrichVehicleDetail } from './enrich';
 import {
   bodyTypeLabels,
+  driveLabels,
   fuelLabels,
   transmissionLabels,
 } from '@/lib/labels';
@@ -73,6 +76,13 @@ function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
     images,
     equipment: pv.equipment,
     description: pv.conditionNotes || `${pv.brand} ${pv.model} ${pv.variant ?? ''}`.trim(),
+    dealer: pv.dealer
+      ? {
+          name: pv.dealer.name ?? null,
+          phone: pv.dealer.phone ?? null,
+          location: pv.dealer.location ?? null,
+        }
+      : null,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -111,7 +121,10 @@ function refresh(): Promise<Vehicle[]> {
   inflight = carapisProvider
     .fetchInventory({ limit: LIVE_LIMIT })
     .then((pvs) => {
-      const items = pvs.map(toVehicle);
+      // Keep only real, sellable listings (valid year + plausible price).
+      const items = pvs.map(toVehicle).filter((v) =>
+        isListableVehicle({ year: v.year, price: v.price }),
+      );
       if (items.length) {
         cache = { at: Date.now(), items };
         writeDisk(items);
@@ -155,6 +168,7 @@ function matches(v: Vehicle, q: VehicleQuery): boolean {
   if (q.fuel.length && !q.fuel.includes(v.fuel)) return false;
   if (q.transmission.length && !q.transmission.includes(v.transmission)) return false;
   if (q.drive.length && !q.drive.includes(v.drive)) return false;
+  if (q.color.length && !q.color.includes(v.exteriorColor)) return false;
   if (q.featured && !v.featured) return false;
   if (q.minPrice != null && v.price < q.minPrice) return false;
   if (q.maxPrice != null && v.price > q.maxPrice) return false;
@@ -164,7 +178,7 @@ function matches(v: Vehicle, q: VehicleQuery): boolean {
   if (q.minHp != null && (v.horsepower ?? 0) < q.minHp) return false;
 
   if (q.q) {
-    const haystack = `${v.brand} ${v.model} ${v.variant ?? ''} ${v.exteriorColor} ${v.description}`.toLowerCase();
+    const haystack = `${v.brand} ${v.model} ${v.variant ?? ''} ${v.engineLabel} ${v.exteriorColor} ${v.description}`.toLowerCase();
     const terms = q.q.toLowerCase().split(/\s+/).filter(Boolean);
     if (!terms.every((t) => haystack.includes(t))) return false;
   }
@@ -230,6 +244,10 @@ export async function facetsLive(): Promise<Facets> {
     bodyTypes: bucket(all.map((v) => v.bodyType), (b) => bodyTypeLabels[b]),
     fuels: bucket(all.map((v) => v.fuel), (f) => fuelLabels[f]),
     transmissions: bucket(all.map((v) => v.transmission), (t) => transmissionLabels[t]),
+    drives: bucket(all.map((v) => v.drive), (d) => driveLabels[d]),
+    colors: bucket(all.map((v) => v.exteriorColor), (c) => c).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    ),
     priceRange: { min: prices.length ? Math.min(...prices) : 0, max: prices.length ? Math.max(...prices) : 0 },
     yearRange: {
       min: years.length ? Math.min(...years) : 2015,
@@ -249,54 +267,21 @@ export async function latestLive(limit = 8): Promise<Vehicle[]> {
   return sortItems(all, 'newest').slice(0, limit);
 }
 
-const detailCache = new Map<string, { at: number; vehicle: Vehicle }>();
-
-// The detail page must never hang: enrichment (full specs) is attempted but
-// bounded — if it doesn't arrive quickly, we serve the base listing data
-// immediately instead of leaving the visitor staring at a blank page.
-const DETAIL_ENRICH_TIMEOUT_MS = Number(process.env.CATALOG_DETAIL_TIMEOUT_MS ?? 5000);
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), ms);
-    promise.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      () => {
-        clearTimeout(timer);
-        resolve(null);
-      },
-    );
-  });
-}
-
 export async function bySlugLive(slug: string): Promise<Vehicle | null> {
   const id = idFromSlug(slug);
 
-  if (id) {
-    const cached = detailCache.get(id);
-    if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
-  }
-
-  // Base vehicle from the already-loaded listing — fast, no network, since the
-  // list was just shown. This is what renders if enrichment is slow.
+  // Base vehicle from the already-loaded listing — fast, no network. The shared
+  // enricher fills in full specs with a bounded, cached upstream call.
   const all = await loadAll();
   const base = id ? all.find((v) => v.id === id) : all.find((v) => v.slug === slug);
-  if (!id) return base ?? null;
+  if (base) return enrichVehicleDetail(base);
 
-  // Try to enrich with the full detail record (specs, description), but cap the
-  // wait — a slow/rate-limited upstream must never block the page.
-  const enrichPromise = fetchVehicleDetail(id).then((detail) => {
-    if (!detail) return null;
-    const vehicle: Vehicle = { ...toVehicle(detail, 0), slug };
-    detailCache.set(id, { at: Date.now(), vehicle });
-    return vehicle;
-  });
-
-  const enriched = await withTimeout(enrichPromise, DETAIL_ENRICH_TIMEOUT_MS);
-  return enriched ?? base ?? null;
+  // Deep link to a vehicle outside the live window: fetch it by id directly.
+  if (id) {
+    const detail = await fetchVehicleDetail(id);
+    return detail ? { ...toVehicle(detail, 0), slug } : null;
+  }
+  return null;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {

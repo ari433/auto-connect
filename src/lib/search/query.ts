@@ -31,6 +31,7 @@ export const vehicleQuerySchema = z.object({
   fuel: list(z.string()),
   transmission: list(z.string()),
   drive: list(z.string()),
+  color: list(z.string()),
   minPrice: z.coerce.number().int().nonnegative().optional(),
   maxPrice: z.coerce.number().int().nonnegative().optional(),
   minYear: z.coerce.number().int().optional(),

@@ -100,6 +100,11 @@ model Vehicle {
   doors         Int?
   seats         Int?
 
+  // Selling dealer, as reported by the source (never fabricated).
+  dealerName     String?
+  dealerPhone    String?
+  dealerLocation String?
+
   vin       String  @unique
   equipment String[]
   images    Json // VehicleImage[]
@@ -126,6 +131,8 @@ model Vehicle {
   @@index([brand, model])
   @@index([price])
   @@index([year])
+  // Retirement sweep after a full sync marks stale rows by syncedAt.
+  @@index([syncedAt])
 }
 
 model Lead {

@@ -21,6 +21,7 @@ export function Gallery({ images, title }: { images: VehicleImageType[]; title: 
           src={current.url}
           alt={current.alt}
           priority
+          variant="full"
           sizes="(max-width: 1024px) 100vw, 60vw"
         />
         {safe.length > 1 && (

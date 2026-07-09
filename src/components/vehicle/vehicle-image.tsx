@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, sizedImageUrl } from '@/lib/utils';
 
 /**
  * Vehicle photo with a branded fallback. If a remote image fails to load we
@@ -16,6 +16,7 @@ export function VehicleImage({
   sizes,
   priority,
   className,
+  variant = 'card',
 }: {
   src: string;
   alt: string;
@@ -23,16 +24,19 @@ export function VehicleImage({
   sizes?: string;
   priority?: boolean;
   className?: string;
+  /** 'card' = light thumbnail (grids, gallery strip); 'full' = full-res photo. */
+  variant?: 'card' | 'full';
 }) {
   const [failed, setFailed] = useState(false);
+  const resolved = sizedImageUrl(src, variant);
 
-  if (failed || !src) {
+  if (failed || !resolved) {
     return <ImageFallback className={className} />;
   }
 
   return (
     <Image
-      src={src}
+      src={resolved}
       alt={alt}
       fill={fill}
       sizes={sizes ?? '(max-width: 768px) 100vw, 33vw'}

@@ -13,6 +13,13 @@ import type {
   Transmission,
 } from '@/types/vehicle';
 
+/** Dealer / seller of a listing, as reported by the upstream provider. */
+export interface ProviderDealer {
+  name?: string;
+  phone?: string;
+  location?: string;
+}
+
 /** Raw vehicle as returned by an upstream provider (pre-pricing, pre-mapping). */
 export interface ProviderVehicle {
   /** Stable identifier in the provider's system. */
@@ -50,6 +57,8 @@ export interface ProviderVehicle {
   equipment: string[];
   /** Provider-side condition/notes used to build our own description. */
   conditionNotes?: string;
+  /** Selling dealer, when the provider exposes it. */
+  dealer?: ProviderDealer;
   featured?: boolean;
 }
 
@@ -61,6 +70,12 @@ export interface FetchOptions {
 export interface VehicleProvider {
   readonly id: string;
   readonly displayName: string;
-  /** Pull the current inventory snapshot from the provider. */
+  /** Pull the current inventory snapshot from the provider (into memory). */
   fetchInventory(options?: FetchOptions): Promise<ProviderVehicle[]>;
+  /**
+   * Stream the full inventory page-by-page for a scalable sync. Each yielded
+   * batch is a single page, so the consumer never holds the whole catalogue in
+   * memory. Optional: providers that cannot stream simply omit it.
+   */
+  streamInventory?(options?: FetchOptions): AsyncGenerator<ProviderVehicle[]>;
 }

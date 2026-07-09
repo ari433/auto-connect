@@ -102,6 +102,7 @@ function baseQuery(overrides: Partial<VehicleQuery>): VehicleQuery {
     fuel: [],
     transmission: [],
     drive: [],
+    color: [],
     featured: false,
     sort: 'newest',
     page: 1,
