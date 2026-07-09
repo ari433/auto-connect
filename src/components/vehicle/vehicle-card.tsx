@@ -24,6 +24,7 @@ export function VehicleCard({
           src={cover?.url ?? ''}
           alt={cover?.alt ?? `${vehicle.brand} ${vehicle.model}`}
           priority={priority}
+          watermark
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="transition-transform duration-[900ms] ease-premium group-hover:scale-[1.05]"
         />

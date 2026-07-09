@@ -17,6 +17,7 @@ export function VehicleImage({
   priority,
   className,
   variant = 'card',
+  watermark = false,
 }: {
   src: string;
   alt: string;
@@ -26,6 +27,8 @@ export function VehicleImage({
   className?: string;
   /** 'card' = light thumbnail (grids, gallery strip); 'full' = full-res photo. */
   variant?: 'card' | 'full';
+  /** Overlay the AUTO CONNECT brand mark on the photo. */
+  watermark?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const resolved = sizedImageUrl(src, variant);
@@ -35,15 +38,28 @@ export function VehicleImage({
   }
 
   return (
-    <Image
-      src={resolved}
-      alt={alt}
-      fill={fill}
-      sizes={sizes ?? '(max-width: 768px) 100vw, 33vw'}
-      priority={priority}
-      onError={() => setFailed(true)}
-      className={cn('object-cover', className)}
-    />
+    <>
+      <Image
+        src={resolved}
+        alt={alt}
+        fill={fill}
+        sizes={sizes ?? '(max-width: 768px) 100vw, 33vw'}
+        priority={priority}
+        onError={() => setFailed(true)}
+        className={cn('object-cover', className)}
+      />
+      {watermark ? (
+        <span className="pointer-events-none absolute bottom-2 right-2 z-10 flex items-center rounded-md bg-ink/45 px-1.5 py-1 backdrop-blur-[1px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-auto-connect-light.png"
+            alt=""
+            aria-hidden
+            className={cn('w-auto opacity-95', variant === 'full' ? 'h-4 sm:h-5' : 'h-3.5')}
+          />
+        </span>
+      ) : null}
+    </>
   );
 }
 
