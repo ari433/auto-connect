@@ -30,6 +30,11 @@ export const metadata: Metadata = {
     'blej veturë Kosovë',
   ],
   authors: [{ name: site.name }],
+  appleWebApp: {
+    capable: true,
+    title: site.name,
+    statusBarStyle: 'default',
+  },
   openGraph: {
     type: 'website',
     locale: 'sq_AL',

@@ -5,6 +5,7 @@ import type { ProviderVehicle, VehicleProvider } from '@/lib/providers/types';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug } from '@/lib/vehicles/slug';
 import { isListableVehicle } from '@/lib/vehicles/listable';
+import { buildPriceSanityFilter } from '@/lib/vehicles/price-sanity';
 import type { VehicleImage } from '@/types/vehicle';
 
 export interface SyncOptions {
@@ -124,6 +125,27 @@ async function* streamProvider(
   return maxVehicles == null || all.length < maxVehicles;
 }
 
+/**
+ * Delete listings whose price is a corrupted outlier vs same-model peers
+ * (≈10×-inflated source prices). Runs once per sync over the whole catalogue.
+ * Returns how many were removed.
+ */
+export async function prunePriceOutliers(): Promise<number> {
+  const rows = await prisma.vehicle.findMany({
+    select: { id: true, brand: true, model: true, price: true },
+  });
+  const keep = buildPriceSanityFilter(rows);
+  const badIds = rows.filter((r) => !keep(r)).map((r) => r.id);
+  let removed = 0;
+  for (let i = 0; i < badIds.length; i += 500) {
+    const res = await prisma.vehicle.deleteMany({
+      where: { id: { in: badIds.slice(i, i + 500) } },
+    });
+    removed += res.count;
+  }
+  return removed;
+}
+
 function isRateLimit(err: unknown): boolean {
   return (
     typeof err === 'object' &&
@@ -192,6 +214,12 @@ export async function runSync(
       return { runId: run.id, status: 'FAILED', fetched: 0, created: 0, updated: 0, removed: 0, message: detail };
     }
     // Otherwise keep the partial progress and skip retirement.
+  }
+
+  // Drop listings with corrupted (outlier) source prices from the catalogue.
+  const pruned = fetched > 0 ? await prunePriceOutliers() : 0;
+  if (pruned) {
+    message = `${message ? message + ' ' : ''}${pruned} çmime të gabuara u hoqën.`;
   }
 
   let removed = 0;

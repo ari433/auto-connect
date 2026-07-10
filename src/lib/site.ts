@@ -18,7 +18,7 @@ export const site = {
     address: 'Milloshevë, Kosovë',
   },
   phones: ['045 832 382', '044 250 572'],
-  email: 'info@autoconnect-ks.com',
+  email: 'autooconnect1@gmail.com',
   hours: [
     { day: 'E hënë – E premte', time: '09:00 – 19:00' },
     { day: 'E shtunë', time: '09:00 – 16:00' },

@@ -15,6 +15,7 @@ import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
 import { isListableVehicle } from '@/lib/vehicles/listable';
+import { buildPriceSanityFilter } from '@/lib/vehicles/price-sanity';
 import { enrichVehicleDetail } from './enrich';
 import {
   bodyTypeLabels,
@@ -121,10 +122,13 @@ function refresh(): Promise<Vehicle[]> {
   inflight = carapisProvider
     .fetchInventory({ limit: LIVE_LIMIT })
     .then((pvs) => {
-      // Keep only real, sellable listings (valid year + plausible price).
-      const items = pvs.map(toVehicle).filter((v) =>
-        isListableVehicle({ year: v.year, price: v.price }),
-      );
+      // Keep only real, sellable listings (valid year + plausible price)...
+      const listable = pvs
+        .map(toVehicle)
+        .filter((v) => isListableVehicle({ year: v.year, price: v.price }));
+      // ...then drop listings with a corrupted (outlier) source price.
+      const keep = buildPriceSanityFilter(listable);
+      const items = listable.filter(keep);
       if (items.length) {
         cache = { at: Date.now(), items };
         writeDisk(items);
