@@ -16,14 +16,14 @@ import { ButtonLink } from '@/components/ui/button';
 export const metadata: Metadata = {
   title: 'Rreth nesh',
   description:
-    'AUTO CONNECT importon vetura premium nga Koreja e Jugut dhe i dorëzon në Kosovë me çmime transparente dhe inspektim të plotë. Njihuni me procesin, vlerat dhe garancionin tonë.',
+    'AUTO CONNECT importon vetura premium nga Koreja e Jugut dhe i dorëzon në Kosovë me çmime transparente dhe inspektim të plotë. Njihuni me procesin, vlerat dhe mbështetjen tonë.',
   alternates: { canonical: '/rreth-nesh' },
 };
 
 const STATS = [
   { value: '500+', label: 'Vetura të importuara' },
-  { value: '14 ditë', label: 'Kohë mesatare dorëzimi' },
-  { value: '12 muaj', label: 'Garancion i përfshirë' },
+  { value: '35–45 ditë', label: 'Kohë mesatare dorëzimi' },
+  { value: '0', label: 'Kosto të fshehura' },
   { value: '100%', label: 'Të inspektuara para nisjes' },
 ];
 
@@ -50,7 +50,7 @@ const STEPS = [
     n: '04',
     icon: Truck,
     title: 'Dorëzim në Kosovë',
-    text: 'Vetura ju dorëzohet e regjistruar dhe e gatshme për rrugë, me garancion dhe mbështetje pas shitjes.',
+    text: 'Vetura ju dorëzohet e regjistruar dhe e gatshme për rrugë, me mbështetjen tonë të vazhdueshme pas shitjes.',
   },
 ];
 
@@ -72,19 +72,15 @@ const VALUES = [
   },
   {
     icon: ShieldCheck,
-    title: 'Garancion real',
-    text: 'Çdo veturë vjen me garancion deri në 12 muaj dhe me ekipin tonë pranë jush edhe pas dorëzimit.',
+    title: 'Mbështetje pas shitjes',
+    text: 'Ekipi ynë ju qëndron pranë edhe pas dorëzimit — servisim, këshillim dhe përgjigje për çdo pyetje.',
   },
 ];
 
 const FAQS = [
   {
     q: 'Sa kohë zgjat importi i një veture?',
-    a: 'Nga momenti i konfirmimit të porosisë deri te dorëzimi në Kosovë, procesi zgjat mesatarisht 14 ditë. Afati i saktë varet nga modeli dhe orari i transportit detar — ju e dini datën e pritur që në fillim.',
-  },
-  {
-    q: 'Çfarë mbulon garancioni?',
-    a: 'Çdo veturë vjen me garancion deri në 12 muaj që mbulon komponentët kryesorë mekanikë dhe elektrikë. Përveç garancionit, ekipi ynë ju mbështet me servisim dhe këshillim edhe pas dorëzimit.',
+    a: 'Nga momenti i konfirmimit të porosisë deri te dorëzimi në Kosovë, procesi zgjat rreth 35–45 ditë. Afati i saktë varet nga modeli dhe orari i transportit detar — ju e dini datën e pritur që në fillim.',
   },
   {
     q: 'Si funksionon pagesa?',
@@ -205,10 +201,9 @@ export default function AboutPage() {
             description="Nëse nuk e gjeni përgjigjen këtu, ekipi ynë është vetëm një telefonatë larg."
           />
           <div className="mx-auto mt-12 max-w-3xl space-y-3">
-            {FAQS.map((f, i) => (
+            {FAQS.map((f) => (
               <details
                 key={f.q}
-                id={i === 1 ? 'garancioni' : undefined}
                 className="group scroll-mt-24 rounded-2xl border border-surface-border bg-white px-6 shadow-card transition-colors open:border-ink/15"
               >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left font-medium tracking-tight text-ink [&::-webkit-details-marker]:hidden">

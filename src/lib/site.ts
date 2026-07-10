@@ -8,7 +8,7 @@ export const site = {
   legalName: 'AUTO CONNECT',
   tagline: 'Vetura premium nga Koreja e Jugut',
   description:
-    'AUTO CONNECT importon vetura premium nga Koreja e Jugut. Zbuloni inventarin tonë të përzgjedhur, me çmime transparente dhe dorëzim të garantuar në Kosovë.',
+    'AUTO CONNECT importon vetura premium nga Koreja e Jugut. Zbuloni inventarin tonë të përzgjedhur, me çmime transparente dhe dorëzim deri në Kosovë.',
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://autoconnect-ks.com',
   locale: 'sq-AL',
   location: {
@@ -52,7 +52,6 @@ export const footerNav = {
   ],
   Ndihmë: [
     { label: 'Pyetje të shpeshta', href: '/rreth-nesh#faq' },
-    { label: 'Garancioni', href: '/rreth-nesh#garancioni' },
     { label: 'Të preferuarat', href: '/te-preferuarat' },
   ],
 } as const;

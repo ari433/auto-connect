@@ -29,8 +29,8 @@ const VALUES = [
   },
   {
     icon: Wrench,
-    title: 'Garancion & mbështetje',
-    text: 'Garancion deri në 12 muaj dhe mbështetje pas shitjes nga ekipi ynë.',
+    title: 'Mbështetje e vazhdueshme',
+    text: 'Ekipi ynë ju qëndron pranë edhe pas dorëzimit — për çdo pyetje apo nevojë.',
   },
 ];
 
@@ -85,7 +85,7 @@ const STEPS = [
     n: '04',
     icon: BadgeCheck,
     title: 'Dorëzim në Kosovë',
-    text: 'Vetura ju dorëzohet e gatshme për rrugë, me garancion dhe mbështetje.',
+    text: 'Brenda 35–45 ditësh, vetura ju dorëzohet e gatshme për rrugë dhe me mbështetjen tonë.',
   },
 ];
 

@@ -49,21 +49,16 @@ export function VehicleImage({
         className={cn('object-cover', className)}
       />
       {watermark ? (
-        <>
-          {/* Blur the source's top-right "Trust Encar" mark. Pure blur adapts to
-              any studio background (white or black) without leaving a box. */}
-          <span className="pointer-events-none absolute right-0 top-0 z-10 h-[28%] w-[46%] rounded-bl-[1.5rem] bg-black/5 backdrop-blur-2xl" />
-          {/* Solid branded bottom bar: fully covers the source's bottom marks
-              (encar.com, etc.) and stamps every photo with AUTO CONNECT. */}
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-[18%] min-h-[34px] items-center justify-center bg-ink/90">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo-auto-connect-light.png"
-              alt="AUTO CONNECT"
-              className="max-h-[58%] w-auto"
-            />
-          </span>
-        </>
+        // Solid branded bottom bar: covers the source's bottom marks
+        // (encar.com, etc.) and stamps every photo with AUTO CONNECT.
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-[18%] min-h-[34px] items-center justify-center bg-ink/90">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-auto-connect-light.png"
+            alt="AUTO CONNECT"
+            className="max-h-[58%] w-auto"
+          />
+        </span>
       ) : null}
     </>
   );

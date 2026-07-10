@@ -243,7 +243,7 @@ export default async function VehiclePage({
 
               <div className="mt-6 flex items-center justify-center gap-4 border-t border-surface-border pt-5 text-xs text-ink-muted">
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand" /> E inspektuar</span>
-                <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-brand" /> Import i garantuar</span>
+                <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-brand" /> Import direkt nga Koreja</span>
               </div>
             </div>
           </div>
