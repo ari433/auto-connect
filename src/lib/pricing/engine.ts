@@ -69,15 +69,16 @@ function roundUpTo(value: number, step: number): number {
 }
 
 /**
- * Compute the full price breakdown for a source vehicle.
- * `priceKrw` is the upstream listing price in South Korean won.
+ * Compute the full landed-cost price breakdown from a source price already in
+ * EUR. This is the real economics of importing a vehicle: freight, customs
+ * duty, VAT and compliance costs are added on top of the source price, then a
+ * margin is applied — the same model regardless of whether the source listing
+ * was priced in KRW or USD.
  */
-export function computePrice(
-  priceKrw: number,
+export function computePriceFromEur(
+  sourcePriceEur: number,
   config: PricingConfig = getPricingConfig(),
 ): PriceBreakdown {
-  const sourcePriceEur = priceKrw * config.fxKrwToEur;
-
   // CIF ≈ vehicle value + freight; duty is levied on the CIF value.
   const cif = sourcePriceEur + config.logisticsEur;
   const dutyEur = cif * config.dutyRate;
@@ -103,7 +104,7 @@ export function computePrice(
     config.demoMarkupEur;
 
   return {
-    sourcePriceKrw: priceKrw,
+    sourcePriceKrw: 0,
     sourcePriceEur: Math.round(sourcePriceEur),
     logisticsEur: Math.round(config.logisticsEur),
     dutyEur: Math.round(dutyEur),
@@ -113,4 +114,17 @@ export function computePrice(
     marginEur: Math.round(price - landedCostEur),
     price,
   };
+}
+
+/**
+ * Compute the full price breakdown for a source vehicle.
+ * `priceKrw` is the upstream listing price in South Korean won.
+ */
+export function computePrice(
+  priceKrw: number,
+  config: PricingConfig = getPricingConfig(),
+): PriceBreakdown {
+  const sourcePriceEur = priceKrw * config.fxKrwToEur;
+  const breakdown = computePriceFromEur(sourcePriceEur, config);
+  return { ...breakdown, sourcePriceKrw: priceKrw };
 }
