@@ -728,7 +728,11 @@ async function* streamProviderPages(
       }
       throw err;
     }
-    if (!result.vehicles.length) return true; // exhausted the catalogue
+    // Empty page: the true end only when the API also says there is no next
+    // page. A spurious empty page mid-pagination (with has_next still true) must
+    // NOT be read as "catalogue complete" — that would wrongly trigger the
+    // retirement sweep and sell off inventory we never reached.
+    if (!result.vehicles.length) return result.hasNext === false;
     const batch = result.vehicles.map(mapToProviderVehicle);
     const room = cap - emitted;
     const slice = batch.length > room ? batch.slice(0, room) : batch;

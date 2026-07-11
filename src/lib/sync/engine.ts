@@ -216,14 +216,23 @@ export async function runSync(
     // Otherwise keep the partial progress and skip retirement.
   }
 
+  // Count right after the upserts (before prune/retire) so created/updated
+  // reflect the actual sync, not the later cleanup.
+  const afterUpsert = await prisma.vehicle.count();
+  const created = Math.max(0, afterUpsert - before);
+  const updated = Math.max(0, fetched - created);
+
   // Drop listings with corrupted (outlier) source prices from the catalogue.
   const pruned = fetched > 0 ? await prunePriceOutliers() : 0;
   if (pruned) {
     message = `${message ? message + ' ' : ''}${pruned} çmime të gabuara u hoqën.`;
   }
 
+  // Retire listings that vanished upstream — ONLY after a genuinely complete
+  // pull that actually returned vehicles. Never on an empty or partial run, or
+  // we would sell off inventory that simply wasn't reached this time.
   let removed = 0;
-  if (completed && retire) {
+  if (completed && retire && fetched > 0) {
     const result = await prisma.vehicle.updateMany({
       where: {
         syncedAt: { lt: runStart },
@@ -233,10 +242,6 @@ export async function runSync(
     });
     removed = result.count;
   }
-
-  const after = await prisma.vehicle.count();
-  const created = Math.max(0, after - before);
-  const updated = Math.max(0, fetched - created);
 
   await prisma.syncRun.update({
     where: { id: run.id },
