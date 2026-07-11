@@ -100,6 +100,11 @@ model Vehicle {
   doors         Int?
   seats         Int?
 
+  // Vehicle history (as reported by the source — like Encar).
+  ownerCount       Int?
+  hasAccident      Boolean?
+  inspectionPassed Boolean?
+
   // Selling dealer, as reported by the source (never fabricated).
   dealerName     String?
   dealerPhone    String?
