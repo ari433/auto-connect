@@ -11,7 +11,8 @@
  * lands well above a couple thousand euros) and stay env-overridable.
  */
 const MIN_PRICE_EUR = Number(process.env.CATALOG_MIN_PRICE_EUR ?? 2500);
-const MIN_YEAR = Number(process.env.CATALOG_MIN_YEAR ?? 1990);
+// The dealership only sells vehicles from 2016 onward.
+const MIN_YEAR = Number(process.env.CATALOG_MIN_YEAR ?? 2016);
 
 export function isListableVehicle(v: { year: number; price: number }): boolean {
   const maxYear = new Date().getFullYear() + 1;
