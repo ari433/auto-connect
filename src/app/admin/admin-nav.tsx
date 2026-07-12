@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Inbox, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { LayoutDashboard, Inbox, RefreshCw, ArrowUpRight, Car } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const links = [
   { href: '/admin', label: 'Përmbledhje', icon: LayoutDashboard, exact: true },
+  { href: '/admin/vetura', label: 'Veturat', icon: Car, exact: false },
   { href: '/admin/leads', label: 'Kërkesat', icon: Inbox, exact: false },
   { href: '/admin/sync', label: 'Sinkronizimi', icon: RefreshCw, exact: false },
 ];

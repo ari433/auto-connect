@@ -135,10 +135,15 @@ async function* streamProvider(
  */
 export async function prunePriceOutliers(): Promise<number> {
   const rows = await prisma.vehicle.findMany({
-    select: { id: true, brand: true, model: true, price: true },
+    select: { id: true, brand: true, model: true, price: true, priceOverride: true },
   });
-  const keep = buildPriceSanityFilter(rows);
-  const badIds = rows.filter((r) => !keep(r)).map((r) => r.id);
+  const keep = buildPriceSanityFilter(
+    rows.map((r) => ({ brand: r.brand, model: r.model, price: r.priceOverride ?? r.price })),
+  );
+  // Never drop a manually-priced vehicle — the admin override is authoritative.
+  const badIds = rows
+    .filter((r) => r.priceOverride == null && !keep({ brand: r.brand, model: r.model, price: r.price }))
+    .map((r) => r.id);
   let removed = 0;
   for (let i = 0; i < badIds.length; i += 500) {
     const res = await prisma.vehicle.deleteMany({

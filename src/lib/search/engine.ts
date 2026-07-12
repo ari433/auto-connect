@@ -27,7 +27,7 @@ const PUBLIC_STATUSES: Prisma.EnumVehicleStatusFilter = {
 
 /** Build a Prisma `where` clause from a validated query. */
 function buildWhere(query: VehicleQuery): Prisma.VehicleWhereInput {
-  const where: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES };
+  const where: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES, hidden: false };
   const and: Prisma.VehicleWhereInput[] = [];
 
   if (query.brand.length) where.brand = { in: query.brand };
@@ -119,7 +119,7 @@ export async function searchVehicles(
 
 /** Aggregate filter facets across the whole public catalogue. */
 export async function getFacets(): Promise<Facets> {
-  const where: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES };
+  const where: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES, hidden: false };
 
   const [brands, bodyTypes, fuels, transmissions, drives, colors, agg] = await Promise.all([
     prisma.vehicle.groupBy({ by: ['brand'], where, _count: true, orderBy: { brand: 'asc' } }),
@@ -172,13 +172,14 @@ export async function getFacets(): Promise<Facets> {
 /** Fetch a single vehicle for the detail page. */
 export async function getVehicleBySlug(slug: string): Promise<Vehicle | null> {
   const row = await prisma.vehicle.findUnique({ where: { slug } });
-  return row ? toPublicVehicle(row) : null;
+  if (!row || row.hidden) return null;
+  return toPublicVehicle(row);
 }
 
 /** Featured vehicles for the homepage. */
 export async function getFeaturedVehicles(limit = 6): Promise<Vehicle[]> {
   const rows = await prisma.vehicle.findMany({
-    where: { status: PUBLIC_STATUSES, featured: true },
+    where: { status: PUBLIC_STATUSES, hidden: false, featured: true },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
@@ -188,7 +189,7 @@ export async function getFeaturedVehicles(limit = 6): Promise<Vehicle[]> {
 /** Newest arrivals for the homepage strip. */
 export async function getLatestVehicles(limit = 8): Promise<Vehicle[]> {
   const rows = await prisma.vehicle.findMany({
-    where: { status: PUBLIC_STATUSES },
+    where: { status: PUBLIC_STATUSES, hidden: false },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
@@ -202,7 +203,7 @@ export async function getRelatedVehicles(
 ): Promise<Vehicle[]> {
   const rows = await prisma.vehicle.findMany({
     where: {
-      status: PUBLIC_STATUSES,
+      status: PUBLIC_STATUSES, hidden: false,
       id: { not: vehicle.id },
       OR: [{ bodyType: vehicle.bodyType }, { brand: vehicle.brand }],
     },
@@ -215,7 +216,7 @@ export async function getRelatedVehicles(
 /** Slugs for sitemap / static params. */
 export async function getAllVehicleSlugs(): Promise<string[]> {
   const rows = await prisma.vehicle.findMany({
-    where: { status: PUBLIC_STATUSES },
+    where: { status: PUBLIC_STATUSES, hidden: false },
     select: { slug: true },
   });
   return rows.map((r) => r.slug);
@@ -225,7 +226,7 @@ export async function getAllVehicleSlugs(): Promise<string[]> {
 export async function getModelsForBrands(brands: string[]): Promise<string[]> {
   const rows = await prisma.vehicle.findMany({
     where: {
-      status: PUBLIC_STATUSES,
+      status: PUBLIC_STATUSES, hidden: false,
       ...(brands.length ? { brand: { in: brands } } : {}),
     },
     select: { model: true },

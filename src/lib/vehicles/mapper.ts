@@ -32,7 +32,8 @@ export function toPublicVehicle(v: PrismaVehicle): Vehicle {
     ownerCount: v.ownerCount,
     hasAccident: v.hasAccident,
     inspectionPassed: v.inspectionPassed,
-    price: v.price,
+    // A manual admin override always wins over the source-derived price.
+    price: v.priceOverride ?? v.price,
     status: v.status,
     featured: v.featured,
     images: parseImages(v.images),
