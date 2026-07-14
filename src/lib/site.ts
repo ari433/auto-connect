@@ -9,7 +9,7 @@ export const site = {
   tagline: 'Vetura premium nga Koreja e Jugut',
   description:
     'AUTO CONNECT importon vetura premium nga Koreja e Jugut. Zbuloni inventarin tonë të përzgjedhur, me çmime transparente dhe dorëzim të garantuar në Kosovë.',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://autoconnect-ks.com',
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://autoconnect-korea.com',
   locale: 'sq-AL',
   location: {
     city: 'Milloshevë',
@@ -18,7 +18,7 @@ export const site = {
     address: 'Milloshevë, Kosovë',
   },
   phones: ['045 832 382', '044 250 572'],
-  email: 'info@autoconnect-ks.com',
+  email: 'info@autoconnect-korea.com',
   hours: [
     { day: 'E hënë – E premte', time: '09:00 – 19:00' },
     { day: 'E shtunë', time: '09:00 – 16:00' },
