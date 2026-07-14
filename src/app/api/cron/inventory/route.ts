@@ -27,7 +27,9 @@ async function handle(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'I paautorizuar' }, { status: 401 });
   }
-  const result = await runSync(carapisProvider);
+  // Stay within the function's maxDuration; retirement only fires if the whole
+  // catalogue is pulled to the end inside the budget.
+  const result = await runSync(carapisProvider, { softDeadlineMs: 280_000 });
   const status = result.status === 'SUCCESS' ? 200 : 500;
   return NextResponse.json(result, { status });
 }

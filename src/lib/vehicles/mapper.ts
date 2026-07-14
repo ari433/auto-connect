@@ -29,12 +29,20 @@ export function toPublicVehicle(v: PrismaVehicle): Vehicle {
     interiorColor: v.interiorColor,
     doors: v.doors,
     seats: v.seats,
-    price: v.price,
+    ownerCount: v.ownerCount,
+    hasAccident: v.hasAccident,
+    inspectionPassed: v.inspectionPassed,
+    // A manual admin override always wins over the source-derived price.
+    price: v.priceOverride ?? v.price,
     status: v.status,
     featured: v.featured,
     images: parseImages(v.images),
     equipment: v.equipment,
     description: v.description,
+    dealer:
+      v.dealerName || v.dealerPhone || v.dealerLocation
+        ? { name: v.dealerName, phone: v.dealerPhone, location: v.dealerLocation }
+        : null,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),
   };

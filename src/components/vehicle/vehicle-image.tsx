@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, sizedImageUrl } from '@/lib/utils';
 
 /**
  * Vehicle photo with a branded fallback. If a remote image fails to load we
@@ -16,6 +16,8 @@ export function VehicleImage({
   sizes,
   priority,
   className,
+  variant = 'card',
+  watermark = false,
 }: {
   src: string;
   alt: string;
@@ -23,23 +25,42 @@ export function VehicleImage({
   sizes?: string;
   priority?: boolean;
   className?: string;
+  /** 'card' = light thumbnail (grids, gallery strip); 'full' = full-res photo. */
+  variant?: 'card' | 'full';
+  /** Overlay the AUTO CONNECT brand mark on the photo. */
+  watermark?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  const resolved = sizedImageUrl(src, variant);
 
-  if (failed || !src) {
+  if (failed || !resolved) {
     return <ImageFallback className={className} />;
   }
 
   return (
-    <Image
-      src={src}
-      alt={alt}
-      fill={fill}
-      sizes={sizes ?? '(max-width: 768px) 100vw, 33vw'}
-      priority={priority}
-      onError={() => setFailed(true)}
-      className={cn('object-cover', className)}
-    />
+    <>
+      <Image
+        src={resolved}
+        alt={alt}
+        fill={fill}
+        sizes={sizes ?? '(max-width: 768px) 100vw, 33vw'}
+        priority={priority}
+        onError={() => setFailed(true)}
+        className={cn('object-cover', className)}
+      />
+      {watermark ? (
+        // Solid branded bottom bar: covers the source's bottom marks
+        // (encar.com, etc.) and stamps every photo with AUTO CONNECT.
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-[18%] min-h-[34px] items-center justify-center bg-ink/90">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-auto-connect-light.png"
+            alt="AUTO CONNECT"
+            className="max-h-[58%] w-auto"
+          />
+        </span>
+      ) : null}
+    </>
   );
 }
 

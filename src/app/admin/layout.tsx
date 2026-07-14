@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Logo } from '@/components/ui/logo';
 import { adminTokenConfigured, isAuthorizedSession } from '@/lib/auth';
 import { AdminNav } from './admin-nav';
+import { AdminLogin } from './admin-login';
 
 export const metadata = {
   title: 'Paneli i administrimit',
@@ -40,16 +41,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         {/* Content */}
         <main className="min-w-0 flex-1">
           {gated && !authorized ? (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-sm text-amber-900">
-              <p className="font-semibold">Qasje e kufizuar</p>
-              <p className="mt-1 text-amber-800">
-                Të dhënat mund të mos shfaqen pa u autentikuar. Vendosni cookie-n{' '}
-                <code className="rounded bg-amber-100 px-1">ac_admin</code> me token-in e
-                administrimit.
-              </p>
+            <div className="pt-6 sm:pt-10">
+              <AdminLogin />
             </div>
-          ) : null}
-          <div className={gated && !authorized ? 'mt-6' : ''}>{children}</div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

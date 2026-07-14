@@ -15,11 +15,11 @@ export function Hero({ feature }: { feature?: Vehicle }) {
             Import premium nga Koreja e Jugut
           </p>
           <h1 className="text-display-xl animate-fade-up text-balance [animation-delay:60ms]">
-            Vetura që <span className="text-brand">flasin</span> për vete.
+            Këtu fillon vetura <span className="text-brand">juaj</span> e re.
           </h1>
           <p className="mt-6 max-w-lg animate-fade-up text-lg leading-relaxed text-ink-muted [animation-delay:120ms]">
             Përzgjedhje e kuruar automjetesh premium, të sjella drejtpërdrejt për ju
-            me çmime transparente dhe dorëzim të garantuar në Kosovë.
+            nga Koreja e Jugut, me çmime transparente dhe dorëzim deri në Kosovë.
           </p>
 
           <div className="mt-9 flex animate-fade-up flex-wrap items-center gap-3 [animation-delay:180ms]">
@@ -34,8 +34,8 @@ export function Hero({ feature }: { feature?: Vehicle }) {
 
           <dl className="mt-12 grid animate-fade-up grid-cols-3 gap-6 border-t border-surface-border pt-8 [animation-delay:240ms]">
             <Stat value="100%" label="Të inspektuara" />
-            <Stat value="14 ditë" label="Kohë dorëzimi" />
-            <Stat value="12 muaj" label="Garancion" />
+            <Stat value="35–45 ditë" label="Kohë dorëzimi" />
+            <Stat value="Çmim final" label="Pa taksa shtesë" />
           </dl>
         </div>
 

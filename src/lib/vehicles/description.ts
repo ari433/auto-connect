@@ -42,7 +42,7 @@ export function describeVehicle(v: Vehicle): string {
   }
 
   sentences.push(
-    'E importuar drejtpërdrejt nga Koreja e Jugut dhe e përgatitur nga AUTO CONNECT — me çmim transparent, dokumentacion të plotë dhe dorëzim të garantuar në Kosovë.',
+    'E importuar drejtpërdrejt nga Koreja e Jugut dhe e përgatitur nga AUTO CONNECT — me çmim transparent, dokumentacion të plotë dhe dorëzim deri në Kosovë brenda 35–45 ditësh.',
   );
 
   return sentences.join(' ');

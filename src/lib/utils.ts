@@ -46,6 +46,28 @@ export function formatDate(value: string | Date): string {
   return dateFormatter.format(d);
 }
 
+/**
+ * Right-size a source image URL for the context it's shown in.
+ *
+ * The Encar CDN ignores its resize query params and always serves the full
+ * ~2200px master (~1.4 MB) — but the bare URL (no query string) returns a 640px
+ * thumbnail (~33 KB). Loading a grid of full masters exhausts browser memory and
+ * crashes the tab, so cards and thumbnails use the light variant; the active
+ * detail photo keeps full resolution. Non-Encar hosts are returned unchanged.
+ */
+export function sizedImageUrl(url: string, variant: 'card' | 'full' = 'card'): string {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    if (/(^|\.)encar\.com$/i.test(u.hostname) && variant === 'card') {
+      return `${u.origin}${u.pathname}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 /** URL-safe slug from arbitrary text. */
 export function slugify(input: string): string {
   return input

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronRight, Phone, ShieldCheck, Ship, Sparkles } from 'lucide-react';
+import { ChevronRight, MapPin, Phone, ShieldCheck, Ship, Sparkles, Store } from 'lucide-react';
 import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { site } from '@/lib/site';
@@ -37,16 +37,38 @@ export async function generateMetadata({
   const name = `${vehicle.brand} ${vehicle.model} ${vehicle.variant ?? ''}`.trim();
   const title = `${name} — ${vehicle.year}`;
   const description = `${name}, ${vehicle.year}, ${formatMileage(vehicle.mileageKm)}, ${fuelLabels[vehicle.fuel]}. ${formatPrice(vehicle.price)} — vetëm në AUTO CONNECT.`;
+  const images = vehicle.images.slice(0, 4).map((i) => ({ url: i.url, alt: i.alt }));
+  const keywords = [
+    vehicle.brand,
+    `${vehicle.brand} ${vehicle.model}`,
+    vehicle.model,
+    vehicle.variant ?? '',
+    String(vehicle.year),
+    fuelLabels[vehicle.fuel],
+    'vetura nga Koreja',
+    'makina të importuara',
+    'Auto Connect Kosovë',
+  ].filter(Boolean);
 
   return {
     title,
     description,
+    keywords,
     alternates: { canonical: `/vetura/${vehicle.slug}` },
     openGraph: {
       title,
       description,
-      images: vehicle.images.slice(0, 1).map((i) => ({ url: i.url })),
+      url: `/vetura/${vehicle.slug}`,
+      siteName: site.name,
+      locale: 'sq_AL',
+      images,
       type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: images.map((i) => i.url),
     },
   };
 }
@@ -131,6 +153,43 @@ export default async function VehiclePage({
                 </ul>
               </div>
             ) : null}
+
+            {vehicle.dealer && (vehicle.dealer.name || vehicle.dealer.location || vehicle.dealer.phone) ? (
+              <div className="mt-12">
+                <h2 className="text-display-sm">Shitësi</h2>
+                <div className="mt-6 rounded-2xl border border-surface-border bg-white p-6">
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    {vehicle.dealer.name ? (
+                      <div className="flex items-start gap-3">
+                        <Store className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                        <div>
+                          <dt className="text-xs text-ink-faint">Tregtari</dt>
+                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.name}</dd>
+                        </div>
+                      </div>
+                    ) : null}
+                    {vehicle.dealer.location ? (
+                      <div className="flex items-start gap-3">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                        <div>
+                          <dt className="text-xs text-ink-faint">Vendndodhja</dt>
+                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.location}</dd>
+                        </div>
+                      </div>
+                    ) : null}
+                    {vehicle.dealer.phone ? (
+                      <div className="flex items-start gap-3">
+                        <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                        <div>
+                          <dt className="text-xs text-ink-faint">Kontakti</dt>
+                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.phone}</dd>
+                        </div>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* Right: sticky summary */}
@@ -184,7 +243,7 @@ export default async function VehiclePage({
 
               <div className="mt-6 flex items-center justify-center gap-4 border-t border-surface-border pt-5 text-xs text-ink-muted">
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand" /> E inspektuar</span>
-                <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-brand" /> Import i garantuar</span>
+                <span className="inline-flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-brand" /> Import direkt nga Koreja</span>
               </div>
             </div>
           </div>

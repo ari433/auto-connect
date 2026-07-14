@@ -23,6 +23,8 @@ const EMPTY_FACETS: Facets = {
   bodyTypes: [],
   fuels: [],
   transmissions: [],
+  drives: [],
+  colors: [],
   priceRange: { min: 0, max: 0 },
   yearRange: { min: 2015, max: 2026 },
 };

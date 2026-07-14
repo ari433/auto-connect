@@ -100,6 +100,16 @@ model Vehicle {
   doors         Int?
   seats         Int?
 
+  // Vehicle history (as reported by the source — like Encar).
+  ownerCount       Int?
+  hasAccident      Boolean?
+  inspectionPassed Boolean?
+
+  // Selling dealer, as reported by the source (never fabricated).
+  dealerName     String?
+  dealerPhone    String?
+  dealerLocation String?
+
   vin       String  @unique
   equipment String[]
   images    Json // VehicleImage[]
@@ -111,10 +121,15 @@ model Vehicle {
   landedCostEur  Int?
   // Final customer price produced by the pricing engine.
   price          Int
+  // Manual admin override — when set it is shown instead of `price`, and it
+  // survives every sync (never overwritten by the source).
+  priceOverride  Int?
   marginEur      Int    @default(0)
 
   status   VehicleStatus @default(AVAILABLE)
   featured Boolean       @default(false)
+  // Admin-hidden vehicles are kept in the database but excluded from the site.
+  hidden   Boolean       @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -126,6 +141,8 @@ model Vehicle {
   @@index([brand, model])
   @@index([price])
   @@index([year])
+  // Retirement sweep after a full sync marks stale rows by syncedAt.
+  @@index([syncedAt])
 }
 
 model Lead {

@@ -30,6 +30,11 @@ export const metadata: Metadata = {
     'blej veturë Kosovë',
   ],
   authors: [{ name: site.name }],
+  appleWebApp: {
+    capable: true,
+    title: site.name,
+    statusBarStyle: 'default',
+  },
   openGraph: {
     type: 'website',
     locale: 'sq_AL',
@@ -37,11 +42,13 @@ export const metadata: Metadata = {
     siteName: site.name,
     title: `${site.name} — ${site.tagline}`,
     description: site.description,
+    images: [{ url: '/logo-auto-connect.png', width: 798, height: 307, alt: site.name }],
   },
   twitter: {
     card: 'summary_large_image',
     title: `${site.name} — ${site.tagline}`,
     description: site.description,
+    images: ['/logo-auto-connect.png'],
   },
   robots: {
     index: true,

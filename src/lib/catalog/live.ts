@@ -14,8 +14,12 @@ import { join } from 'node:path';
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
+import { isListableVehicle } from '@/lib/vehicles/listable';
+import { buildPriceSanityFilter } from '@/lib/vehicles/price-sanity';
+import { enrichVehicleDetail } from './enrich';
 import {
   bodyTypeLabels,
+  driveLabels,
   fuelLabels,
   transmissionLabels,
 } from '@/lib/labels';
@@ -73,6 +77,13 @@ function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
     images,
     equipment: pv.equipment,
     description: pv.conditionNotes || `${pv.brand} ${pv.model} ${pv.variant ?? ''}`.trim(),
+    dealer: pv.dealer
+      ? {
+          name: pv.dealer.name ?? null,
+          phone: pv.dealer.phone ?? null,
+          location: pv.dealer.location ?? null,
+        }
+      : null,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -105,19 +116,19 @@ function writeDisk(items: Vehicle[]): void {
   }
 }
 
-// Cold start (nothing cached yet) fetches a small, fast batch so the very
-// first visitor isn't kept waiting. Background refreshes afterwards pull a
-// much larger batch — since those never block a request, growing the
-// catalogue towards the full Free Tier size (~1000) costs nothing in UX.
-const LIVE_TARGET = Number(process.env.CATALOG_LIVE_TARGET ?? 150);
-
 /** Fetch fresh data from the provider and update both caches. */
-function refresh(limit: number): Promise<Vehicle[]> {
+function refresh(): Promise<Vehicle[]> {
   if (inflight) return inflight;
   inflight = carapisProvider
-    .fetchInventory({ limit })
+    .fetchInventory({ limit: LIVE_LIMIT })
     .then((pvs) => {
-      const items = pvs.map(toVehicle);
+      // Keep only real, sellable listings (valid year + plausible price)...
+      const listable = pvs
+        .map(toVehicle)
+        .filter((v) => isListableVehicle({ year: v.year, price: v.price }));
+      // ...then drop listings with a corrupted (outlier) source price.
+      const keep = buildPriceSanityFilter(listable);
+      const items = listable.filter(keep);
       if (items.length) {
         cache = { at: Date.now(), items };
         writeDisk(items);
@@ -137,10 +148,6 @@ function refresh(limit: number): Promise<Vehicle[]> {
   return inflight;
 }
 
-// Ensures we only kick off the one-time "grow to target" background fetch
-// once per server process, right after the small cold-start batch lands.
-let hasTriggeredGrowth = false;
-
 /** Load the catalogue: memory → disk → provider, always serving what we have. */
 async function loadAll(): Promise<Vehicle[]> {
   // Warm the in-memory cache from disk on first use.
@@ -148,26 +155,12 @@ async function loadAll(): Promise<Vehicle[]> {
 
   if (cache) {
     // Refresh in the background when stale, but never make the request block.
-    // Background refreshes target the larger size — this is how the
-    // catalogue grows from the fast initial batch towards LIVE_TARGET.
-    if (Date.now() - cache.at >= TTL_MS) {
-      void refresh(LIVE_TARGET);
-    } else if (!hasTriggeredGrowth && cache.items.length < LIVE_TARGET) {
-      hasTriggeredGrowth = true;
-      void refresh(LIVE_TARGET);
-    }
+    if (Date.now() - cache.at >= TTL_MS) void refresh();
     return cache.items;
   }
 
-  // Nothing cached anywhere yet — must fetch (blocking) at least once, so keep
-  // this batch small for a fast first paint. Immediately grow in the
-  // background afterwards, without making anyone wait for it.
-  const items = await refresh(LIVE_LIMIT);
-  if (!hasTriggeredGrowth) {
-    hasTriggeredGrowth = true;
-    void refresh(LIVE_TARGET);
-  }
-  return items;
+  // Nothing cached anywhere yet — must fetch (blocking) at least once.
+  return refresh();
 }
 
 /* ── In-memory query helpers ─────────────────────────────────────────────── */
@@ -179,6 +172,7 @@ function matches(v: Vehicle, q: VehicleQuery): boolean {
   if (q.fuel.length && !q.fuel.includes(v.fuel)) return false;
   if (q.transmission.length && !q.transmission.includes(v.transmission)) return false;
   if (q.drive.length && !q.drive.includes(v.drive)) return false;
+  if (q.color.length && !q.color.includes(v.exteriorColor)) return false;
   if (q.featured && !v.featured) return false;
   if (q.minPrice != null && v.price < q.minPrice) return false;
   if (q.maxPrice != null && v.price > q.maxPrice) return false;
@@ -188,7 +182,7 @@ function matches(v: Vehicle, q: VehicleQuery): boolean {
   if (q.minHp != null && (v.horsepower ?? 0) < q.minHp) return false;
 
   if (q.q) {
-    const haystack = `${v.brand} ${v.model} ${v.variant ?? ''} ${v.exteriorColor} ${v.description}`.toLowerCase();
+    const haystack = `${v.brand} ${v.model} ${v.variant ?? ''} ${v.engineLabel} ${v.exteriorColor} ${v.description}`.toLowerCase();
     const terms = q.q.toLowerCase().split(/\s+/).filter(Boolean);
     if (!terms.every((t) => haystack.includes(t))) return false;
   }
@@ -254,6 +248,10 @@ export async function facetsLive(): Promise<Facets> {
     bodyTypes: bucket(all.map((v) => v.bodyType), (b) => bodyTypeLabels[b]),
     fuels: bucket(all.map((v) => v.fuel), (f) => fuelLabels[f]),
     transmissions: bucket(all.map((v) => v.transmission), (t) => transmissionLabels[t]),
+    drives: bucket(all.map((v) => v.drive), (d) => driveLabels[d]),
+    colors: bucket(all.map((v) => v.exteriorColor), (c) => c).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    ),
     priceRange: { min: prices.length ? Math.min(...prices) : 0, max: prices.length ? Math.max(...prices) : 0 },
     yearRange: {
       min: years.length ? Math.min(...years) : 2015,
@@ -273,63 +271,21 @@ export async function latestLive(limit = 8): Promise<Vehicle[]> {
   return sortItems(all, 'newest').slice(0, limit);
 }
 
-const detailCache = new Map<string, { at: number; vehicle: Vehicle }>();
-
-// The detail page must never hang: enrichment (full specs) is attempted but
-// bounded — if it doesn't arrive quickly, we serve the base listing data
-// immediately instead of leaving the visitor staring at a blank page.
-const DETAIL_ENRICH_TIMEOUT_MS = Number(process.env.CATALOG_DETAIL_TIMEOUT_MS ?? 5000);
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), ms);
-    promise.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      () => {
-        clearTimeout(timer);
-        resolve(null);
-      },
-    );
-  });
-}
-
 export async function bySlugLive(slug: string): Promise<Vehicle | null> {
   const id = idFromSlug(slug);
 
-  if (id) {
-    const cached = detailCache.get(id);
-    if (cached && Date.now() - cached.at < TTL_MS) return cached.vehicle;
-  }
-
-  // Base vehicle from the already-loaded listing — fast, no network, since the
-  // list was just shown. This is what renders if enrichment is slow.
+  // Base vehicle from the already-loaded listing — fast, no network. The shared
+  // enricher fills in full specs with a bounded, cached upstream call.
   const all = await loadAll();
   const base = id ? all.find((v) => v.id === id) : all.find((v) => v.slug === slug);
-  if (!id) return base ?? null;
+  if (base) return enrichVehicleDetail(base);
 
-  // Try to enrich with the full detail record (specs, description), but cap the
-  // wait — a slow/rate-limited upstream must never block the page.
-  const enrichPromise = fetchVehicleDetail(id).then((detail) => {
-    if (!detail) return null;
-    const vehicle: Vehicle = { ...toVehicle(detail, 0), slug };
-    detailCache.set(id, { at: Date.now(), vehicle });
-    return vehicle;
-  });
-
-  if (base) {
-    // We already have something real to show fast — cap the wait for extra
-    // detail so the page never hangs on it.
-    const enriched = await withTimeout(enrichPromise, DETAIL_ENRICH_TIMEOUT_MS);
-    return enriched ?? base;
+  // Deep link to a vehicle outside the live window: fetch it by id directly.
+  if (id) {
+    const detail = await fetchVehicleDetail(id);
+    return detail ? { ...toVehicle(detail, 0), slug } : null;
   }
-
-  // This vehicle isn't in the currently-loaded listing (e.g. a direct link to
-  // a car outside the cached batch) — there is nothing to fall back to, so
-  // it's worth waiting the full request timeout rather than giving up early.
-  return enrichPromise;
+  return null;
 }
 
 export async function relatedLive(vehicle: Vehicle, limit = 3): Promise<Vehicle[]> {

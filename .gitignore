@@ -33,3 +33,5 @@ next-env.d.ts
 
 # runtime cache
 /.cache
+.vercel
+.env*

@@ -1,5 +1,6 @@
 import { site } from '@/lib/site';
-import { fuelLabels, bodyTypeLabels } from '@/lib/labels';
+import { fuelLabels, bodyTypeLabels, driveLabels, transmissionLabels } from '@/lib/labels';
+import { describeVehicle } from '@/lib/vehicles/description';
 import type { Vehicle } from '@/types/vehicle';
 
 function JsonLd({ data }: { data: Record<string, unknown> }) {
@@ -36,19 +37,55 @@ export function OrganizationJsonLd() {
 }
 
 export function VehicleJsonLd({ vehicle }: { vehicle: Vehicle }) {
+  const name = `${vehicle.brand} ${vehicle.model} ${vehicle.variant ?? ''}`.trim();
   return (
     <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'Car',
-        name: `${vehicle.brand} ${vehicle.model} ${vehicle.variant ?? ''}`.trim(),
+        name,
+        url: `${site.url}/vetura/${vehicle.slug}`,
+        description: describeVehicle(vehicle),
         brand: { '@type': 'Brand', name: vehicle.brand },
         model: vehicle.model,
         vehicleModelDate: String(vehicle.year),
+        productionDate: String(vehicle.year),
         bodyType: bodyTypeLabels[vehicle.bodyType],
         fuelType: fuelLabels[vehicle.fuel],
         color: vehicle.exteriorColor,
-        vehicleTransmission: vehicle.transmission,
+        vehicleTransmission: transmissionLabels[vehicle.transmission],
+        driveWheelConfiguration: driveLabels[vehicle.drive],
+        itemCondition: 'https://schema.org/UsedCondition',
+        ...(vehicle.doors ? { numberOfDoors: vehicle.doors } : {}),
+        ...(vehicle.seats
+          ? { seatingCapacity: { '@type': 'QuantitativeValue', value: vehicle.seats } }
+          : {}),
+        ...(vehicle.engineCc || vehicle.horsepower
+          ? {
+              vehicleEngine: {
+                '@type': 'EngineSpecification',
+                name: vehicle.engineLabel,
+                ...(vehicle.engineCc
+                  ? {
+                      engineDisplacement: {
+                        '@type': 'QuantitativeValue',
+                        value: vehicle.engineCc,
+                        unitCode: 'CMQ',
+                      },
+                    }
+                  : {}),
+                ...(vehicle.horsepower
+                  ? {
+                      enginePower: {
+                        '@type': 'QuantitativeValue',
+                        value: vehicle.horsepower,
+                        unitCode: 'BHP',
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
         mileageFromOdometer: {
           '@type': 'QuantitativeValue',
           value: vehicle.mileageKm,

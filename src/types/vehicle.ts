@@ -33,6 +33,13 @@ export interface VehicleImage {
   alt: string;
 }
 
+/** Selling dealer of a listing. Any field may be unknown. */
+export interface Dealer {
+  name: string | null;
+  phone: string | null;
+  location: string | null;
+}
+
 /** Public vehicle shape — safe to send to the browser (no VIN, no cost basis). */
 export interface Vehicle {
   id: string;
@@ -64,6 +71,8 @@ export interface Vehicle {
   images: VehicleImage[];
   equipment: string[];
   description: string;
+  /** Selling dealer, when the source exposes it. Never fabricated. */
+  dealer?: Dealer | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +105,8 @@ export interface Facets {
   bodyTypes: FacetBucket[];
   fuels: FacetBucket[];
   transmissions: FacetBucket[];
+  drives: FacetBucket[];
+  colors: FacetBucket[];
   priceRange: { min: number; max: number };
   yearRange: { min: number; max: number };
 }

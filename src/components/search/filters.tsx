@@ -1,14 +1,12 @@
 'use client';
 
-import { useCallback, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SlidersHorizontal, X } from 'lucide-react';
 import type { Facets } from '@/types/vehicle';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-
-const MULTI_KEYS = ['brand', 'bodyType', 'fuel', 'transmission'] as const;
 
 export function InventoryFilters({ facets, total }: { facets: Facets; total: number }) {
   const [open, setOpen] = useState(false);
@@ -119,8 +117,33 @@ function FilterControls({
     set.has(value) ? set.delete(value) : set.add(value);
     if (set.size) next.set(key, [...set].join(','));
     else next.delete(key);
+    // Changing the brand invalidates any model selection made under it.
+    if (key === 'brand') next.delete('model');
     push(next);
   };
+
+  // Dependent Make → Model filter: load models for the selected brands only.
+  const selectedBrands = getMulti('brand');
+  const brandKey = selectedBrands.join(',');
+  const [models, setModels] = useState<string[]>([]);
+  useEffect(() => {
+    if (!brandKey) {
+      setModels([]);
+      return;
+    }
+    const controller = new AbortController();
+    const qs = brandKey
+      .split(',')
+      .map((b) => `brand=${encodeURIComponent(b)}`)
+      .join('&');
+    fetch(`/api/models?${qs}`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((d) => setModels(Array.isArray(d?.models) ? d.models : []))
+      .catch(() => {
+        /* aborted or offline — leave the model filter empty */
+      });
+    return () => controller.abort();
+  }, [brandKey]);
 
   const setScalar = (key: string, value: string) => {
     const next = new URLSearchParams(current.toString());
@@ -155,6 +178,21 @@ function FilterControls({
           ))}
         </div>
       </FilterGroup>
+
+      {selectedBrands.length > 0 && models.length > 0 ? (
+        <FilterGroup title="Modeli" defaultOpen>
+          <div className="flex flex-wrap gap-2">
+            {models.map((m) => (
+              <Chip
+                key={m}
+                label={m}
+                active={getMulti('model').includes(m)}
+                onClick={() => toggleMulti('model', m)}
+              />
+            ))}
+          </div>
+        </FilterGroup>
+      ) : null}
 
       <FilterGroup title="Karoseria" defaultOpen>
         <div className="flex flex-wrap gap-2">
@@ -194,6 +232,40 @@ function FilterControls({
           ))}
         </div>
       </FilterGroup>
+
+      {/* Facet groups appear only when the data offers a real choice (>1 value).
+          The bulk Encar feed defaults every listing's drivetrain, so this hides
+          a single-value "drivetrain" filter automatically instead of showing a
+          dead control — and shows it the moment the data carries real variety. */}
+      {facets.drives.length > 1 ? (
+        <FilterGroup title="Tërheqja">
+          <div className="flex flex-wrap gap-2">
+            {facets.drives.map((d) => (
+              <Chip
+                key={d.value}
+                label={d.label}
+                active={getMulti('drive').includes(d.value)}
+                onClick={() => toggleMulti('drive', d.value)}
+              />
+            ))}
+          </div>
+        </FilterGroup>
+      ) : null}
+
+      {facets.colors.length > 1 ? (
+        <FilterGroup title="Ngjyra">
+          <div className="flex flex-wrap gap-2">
+            {facets.colors.map((c) => (
+              <Chip
+                key={c.value}
+                label={c.label}
+                active={getMulti('color').includes(c.value)}
+                onClick={() => toggleMulti('color', c.value)}
+              />
+            ))}
+          </div>
+        </FilterGroup>
+      ) : null}
 
       <FilterGroup title="Çmimi (EUR)">
         <div className="flex items-center gap-2">
