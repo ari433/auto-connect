@@ -5,7 +5,7 @@ import { ChevronRight, MapPin, Phone, ShieldCheck, Ship, Sparkles, Store } from 
 import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { site } from '@/lib/site';
-import { formatMileage, formatPrice } from '@/lib/utils';
+import { formatMileage, formatPrice, sizedImageUrl } from '@/lib/utils';
 import {
   bodyTypeLabels,
   driveLabels,
@@ -38,7 +38,13 @@ export async function generateMetadata({
   const name = `${vehicle.brand} ${vehicle.model} ${vehicle.variant ?? ''}`.trim();
   const title = `${name} — ${vehicle.year}`;
   const description = `${name}, ${vehicle.year}, ${formatMileage(vehicle.mileageKm)}, ${fuelLabels[vehicle.fuel]}. ${formatPrice(vehicle.price)} — vetëm në AUTO CONNECT.`;
-  const images = vehicle.images.slice(0, 4).map((i) => ({ url: i.url, alt: i.alt }));
+  // Use the bare (query-less) image URL for OG/social. The Encar CDN returns
+  // multipart/form-data when the ?impolicy resize params are present, which
+  // WhatsApp/Facebook crawlers reject — the bare URL returns proper image/jpeg,
+  // so the vehicle photo actually renders in the WhatsApp link preview.
+  const images = vehicle.images
+    .slice(0, 4)
+    .map((i) => ({ url: sizedImageUrl(i.url, 'card'), alt: i.alt }));
   const keywords = [
     vehicle.brand,
     `${vehicle.brand} ${vehicle.model}`,
