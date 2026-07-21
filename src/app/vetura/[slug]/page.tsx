@@ -197,8 +197,8 @@ export default async function VehiclePage({
             ) : null}
           </div>
 
-          {/* Right: sticky summary */}
-          <div className="lg:sticky lg:top-24 lg:self-start">
+          {/* Right: sticky summary — shown first on mobile so price + WhatsApp CTA are above the fold */}
+          <div className="order-first lg:order-none lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-2xl border border-surface-border bg-white p-6 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <div>
