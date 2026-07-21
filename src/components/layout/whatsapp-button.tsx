@@ -1,14 +1,12 @@
 import { site } from '@/lib/site';
+import { whatsappUrl } from '@/lib/whatsapp';
 
 /**
  * Floating WhatsApp button, fixed to the bottom-right corner.
  * Opens a WhatsApp chat with AUTO CONNECT's primary number.
- * Kosovo dial code is +383, so "045 832 382" → "38345832382".
  */
 export function WhatsAppButton() {
-  const phone = '38345832382';
-  const message = 'Përshëndetje AUTO CONNECT, kam një pyetje për një veturë.';
-  const href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const href = whatsappUrl('Përshëndetje AUTO CONNECT, kam një pyetje për një veturë.');
 
   return (
     <a
