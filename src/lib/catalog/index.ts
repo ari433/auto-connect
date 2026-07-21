@@ -14,6 +14,7 @@
  */
 import type { Facets, Vehicle, VehicleListResult } from '@/types/vehicle';
 import type { VehicleQuery } from '@/lib/search/query';
+import type { DependentOptions } from '@/lib/search/engine';
 import { prisma } from '@/lib/prisma';
 import * as db from '@/lib/search/engine';
 import * as live from './live';
@@ -116,5 +117,16 @@ export function getModelsForBrands(brands: string[]): Promise<string[]> {
   return read(
     () => db.getModelsForBrands(brands),
     () => live.modelsForBrandsLive(brands),
+  );
+}
+
+export function getDependentOptions(sel: {
+  brand?: string;
+  model?: string;
+  bodyType?: string;
+}): Promise<DependentOptions> {
+  return read(
+    () => db.getDependentOptions(sel),
+    () => live.dependentOptionsLive(sel),
   );
 }

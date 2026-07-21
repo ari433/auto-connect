@@ -38,6 +38,7 @@ function buildWhere(query: VehicleQuery): Prisma.VehicleWhereInput {
     where.transmission = { in: query.transmission as Transmission[] };
   if (query.drive.length) where.drive = { in: query.drive as DriveType[] };
   if (query.color.length) where.exteriorColor = { in: query.color };
+  if (query.engine) where.engineLabel = query.engine;
   if (query.featured) where.featured = true;
 
   if (query.minPrice != null || query.maxPrice != null) {
@@ -52,7 +53,12 @@ function buildWhere(query: VehicleQuery): Prisma.VehicleWhereInput {
       ...(query.maxYear != null ? { lte: query.maxYear } : {}),
     };
   }
-  if (query.maxMileage != null) where.mileageKm = { lte: query.maxMileage };
+  if (query.minMileage != null || query.maxMileage != null) {
+    where.mileageKm = {
+      ...(query.minMileage != null ? { gte: query.minMileage } : {}),
+      ...(query.maxMileage != null ? { lte: query.maxMileage } : {}),
+    };
+  }
   if (query.minHp != null) where.horsepower = { gte: query.minHp };
 
   if (query.q) {
@@ -234,4 +240,62 @@ export async function getModelsForBrands(brands: string[]): Promise<string[]> {
     orderBy: { model: 'asc' },
   });
   return rows.map((r) => r.model);
+}
+
+/** Options offered by the dependent Marka → Modeli → Tipi → Motori dropdowns. */
+export interface DependentOptions {
+  models: string[];
+  bodyTypes: { value: string; label: string }[];
+  engines: string[];
+}
+
+/**
+ * Distinct downstream choices for the dependent filter dropdowns, narrowed by
+ * whatever upstream selection the user has already made:
+ *   models   — for the selected brand
+ *   bodyTypes— for the selected brand + model
+ *   engines  — for the selected brand + model + bodyType
+ */
+export async function getDependentOptions(sel: {
+  brand?: string;
+  model?: string;
+  bodyType?: string;
+}): Promise<DependentOptions> {
+  const base: Prisma.VehicleWhereInput = { status: PUBLIC_STATUSES, hidden: false };
+  const brandWhere: Prisma.VehicleWhereInput = {
+    ...base,
+    ...(sel.brand ? { brand: sel.brand } : {}),
+  };
+  const modelWhere: Prisma.VehicleWhereInput = {
+    ...brandWhere,
+    ...(sel.model ? { model: sel.model } : {}),
+  };
+  const engineWhere: Prisma.VehicleWhereInput = {
+    ...modelWhere,
+    ...(sel.bodyType ? { bodyType: sel.bodyType as BodyType } : {}),
+  };
+
+  const [models, bodyTypes, engines] = await Promise.all([
+    prisma.vehicle.findMany({
+      where: brandWhere,
+      select: { model: true },
+      distinct: ['model'],
+      orderBy: { model: 'asc' },
+    }),
+    prisma.vehicle.groupBy({ by: ['bodyType'], where: modelWhere, _count: true }),
+    prisma.vehicle.findMany({
+      where: engineWhere,
+      select: { engineLabel: true },
+      distinct: ['engineLabel'],
+      orderBy: { engineLabel: 'asc' },
+    }),
+  ]);
+
+  return {
+    models: models.map((m) => m.model).filter(Boolean),
+    bodyTypes: bodyTypes
+      .map((b) => ({ value: b.bodyType, label: bodyTypeLabels[b.bodyType] ?? b.bodyType }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    engines: engines.map((e) => e.engineLabel).filter(Boolean),
+  };
 }

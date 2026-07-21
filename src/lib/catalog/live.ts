@@ -173,11 +173,13 @@ function matches(v: Vehicle, q: VehicleQuery): boolean {
   if (q.transmission.length && !q.transmission.includes(v.transmission)) return false;
   if (q.drive.length && !q.drive.includes(v.drive)) return false;
   if (q.color.length && !q.color.includes(v.exteriorColor)) return false;
+  if (q.engine && v.engineLabel !== q.engine) return false;
   if (q.featured && !v.featured) return false;
   if (q.minPrice != null && v.price < q.minPrice) return false;
   if (q.maxPrice != null && v.price > q.maxPrice) return false;
   if (q.minYear != null && v.year < q.minYear) return false;
   if (q.maxYear != null && v.year > q.maxYear) return false;
+  if (q.minMileage != null && v.mileageKm < q.minMileage) return false;
   if (q.maxMileage != null && v.mileageKm > q.maxMileage) return false;
   if (q.minHp != null && (v.horsepower ?? 0) < q.minHp) return false;
 
@@ -310,4 +312,34 @@ export async function modelsForBrandsLive(brands: string[]): Promise<string[]> {
     if (!brands.length || brands.includes(v.brand)) models.add(v.model);
   }
   return [...models].sort();
+}
+
+export async function dependentOptionsLive(sel: {
+  brand?: string;
+  model?: string;
+  bodyType?: string;
+}): Promise<{
+  models: string[];
+  bodyTypes: { value: string; label: string }[];
+  engines: string[];
+}> {
+  const all = await loadAll();
+  const models = new Set<string>();
+  const bodyTypes = new Map<string, string>();
+  const engines = new Set<string>();
+  for (const v of all) {
+    if (sel.brand && v.brand !== sel.brand) continue;
+    models.add(v.model);
+    if (sel.model && v.model !== sel.model) continue;
+    bodyTypes.set(v.bodyType, bodyTypeLabels[v.bodyType] ?? v.bodyType);
+    if (sel.bodyType && v.bodyType !== sel.bodyType) continue;
+    if (v.engineLabel) engines.add(v.engineLabel);
+  }
+  return {
+    models: [...models].sort(),
+    bodyTypes: [...bodyTypes.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    engines: [...engines].sort(),
+  };
 }

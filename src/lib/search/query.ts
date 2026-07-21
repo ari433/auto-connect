@@ -32,10 +32,13 @@ export const vehicleQuerySchema = z.object({
   transmission: list(z.string()),
   drive: list(z.string()),
   color: list(z.string()),
+  /** Engine (e.g. "2.0 TDI") — exact match against a listing's engineLabel. */
+  engine: z.string().trim().max(120).optional(),
   minPrice: z.coerce.number().int().nonnegative().optional(),
   maxPrice: z.coerce.number().int().nonnegative().optional(),
   minYear: z.coerce.number().int().optional(),
   maxYear: z.coerce.number().int().optional(),
+  minMileage: z.coerce.number().int().nonnegative().optional(),
   maxMileage: z.coerce.number().int().nonnegative().optional(),
   minHp: z.coerce.number().int().nonnegative().optional(),
   featured: z
