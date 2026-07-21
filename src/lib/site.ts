@@ -9,7 +9,11 @@ export const site = {
   tagline: 'Vetura premium nga Koreja e Jugut',
   description:
     'AUTO CONNECT importon vetura premium nga Koreja e Jugut. Zbuloni inventarin tonë të përzgjedhur, me çmime transparente dhe dorëzim deri në Kosovë.',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://autoconnect-korea.com',
+  // Canonical production domain. We intentionally do NOT read
+  // NEXT_PUBLIC_SITE_URL here: on Vercel it was set to a now-paused
+  // *.vercel.app deployment domain, which made WhatsApp/social links,
+  // canonicals and og:url point at a dead "deployment paused" page.
+  url: 'https://autoconnect-korea.com',
   locale: 'sq-AL',
   location: {
     city: 'Milloshevë',
