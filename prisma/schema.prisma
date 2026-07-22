@@ -183,3 +183,18 @@ model SyncRun {
 
   @@index([startedAt])
 }
+
+/// One recorded page view — the raw signal behind the visitor analytics on the
+/// admin dashboard. `visitorId` is an anonymous random id kept in a cookie, so
+/// unique visitors can be counted without storing any personal data.
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  visitorId String
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([visitorId])
+  @@index([path])
+}

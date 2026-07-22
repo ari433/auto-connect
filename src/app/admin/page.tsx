@@ -3,6 +3,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/lib/db-safe';
 import { getLeadStats } from '@/lib/leads/service';
+import { getAnalyticsSummary } from '@/lib/analytics/service';
 import { leadStatusLabels } from '@/lib/labels';
 import { formatPrice, formatNumber } from '@/lib/utils';
 import type { LeadStatus } from '@prisma/client';
@@ -28,6 +29,7 @@ export default async function AdminDashboardPage() {
     lastSync,
     latestLeads,
     byBrand,
+    analytics,
   ] = await Promise.all([
     safe(() => prisma.vehicle.count(), 0),
     safe(() => prisma.vehicle.count({ where: { status: 'AVAILABLE' } }), 0),
@@ -59,6 +61,12 @@ export default async function AdminDashboardPage() {
         }),
       [],
     ),
+    safe(() => getAnalyticsSummary(), {
+      today: { views: 0, visitors: 0 },
+      last7: { views: 0, visitors: 0 },
+      last30: { views: 0, visitors: 0 },
+      totalViews: 0,
+    }),
   ]);
 
   const newLeads = leadStats.byStatus['NEW'] ?? 0;
@@ -81,7 +89,7 @@ export default async function AdminDashboardPage() {
       />
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-7">
         <StatCard
           label="Vetura gjithsej"
           value={formatNumber(totalVehicles)}
@@ -95,6 +103,12 @@ export default async function AdminDashboardPage() {
               ? `${Math.round((availableVehicles / totalVehicles) * 100)}% e katalogut`
               : '—'
           }
+        />
+        <StatCard
+          label="Vizitorë (7 ditë)"
+          value={formatNumber(analytics.last7.visitors)}
+          accent={analytics.today.visitors > 0}
+          hint={`${formatNumber(analytics.today.visitors)} sot · ${formatNumber(analytics.last7.views)} shikime`}
         />
         <StatCard
           label="Kërkesa gjithsej"

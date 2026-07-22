@@ -6,6 +6,7 @@ import { FavoritesProvider } from '@/components/favorites/favorites-provider';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { WhatsAppButton } from '@/components/layout/whatsapp-button';
+import { PageViewTracker } from '@/components/analytics/page-view-tracker';
 import { OrganizationJsonLd } from '@/components/seo/json-ld';
 
 const inter = Inter({
@@ -80,6 +81,7 @@ export default function RootLayout({
             <Footer />
           </div>
           <WhatsAppButton />
+          <PageViewTracker />
         </FavoritesProvider>
       </body>
     </html>
