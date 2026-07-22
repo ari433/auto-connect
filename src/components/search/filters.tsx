@@ -161,9 +161,11 @@ function FilterControls({
 
   // Dependent options for Modeli / Tipi / Motori, refreshed whenever an upstream
   // selection (brand → model → bodyType) changes.
+  // Seed body types from the facets we already have so TIPI is usable on first
+  // paint; models/engines fill in from the dependent fetch below.
   const [options, setOptions] = useState<DependentOptions>({
     models: [],
-    bodyTypes: [],
+    bodyTypes: facets.bodyTypes.map((b) => ({ value: b.value, label: b.label })),
     engines: [],
   });
   useEffect(() => {
@@ -257,7 +259,7 @@ function FilterControls({
         placeholder="Zgjidh modelin"
         value={draft.model}
         onChange={setModel}
-        disabled={!draft.brand}
+        disabled={options.models.length === 0}
         options={options.models.map((m) => ({ value: m, label: m }))}
       />
 
@@ -266,7 +268,7 @@ function FilterControls({
         placeholder="Zgjidh tipin"
         value={draft.bodyType}
         onChange={setBodyType}
-        disabled={!draft.model}
+        disabled={options.bodyTypes.length === 0}
         options={options.bodyTypes}
       />
 
@@ -275,7 +277,7 @@ function FilterControls({
         placeholder="Zgjidh motorin"
         value={draft.engine}
         onChange={(v) => setField('engine', v)}
-        disabled={!draft.bodyType}
+        disabled={options.engines.length === 0}
         options={options.engines.map((e) => ({ value: e, label: e }))}
       />
 
