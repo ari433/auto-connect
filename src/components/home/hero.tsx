@@ -24,7 +24,7 @@ export function Hero({ feature }: { feature?: Vehicle }) {
 
           <div className="mt-9 flex animate-fade-up flex-wrap items-center gap-3 [animation-delay:180ms]">
             <ButtonLink href="/inventari" size="lg">
-              Eksploro inventarin
+              Shiko veturat
               <ArrowRight className="h-4 w-4" />
             </ButtonLink>
             <ButtonLink href="/asistenti" variant="outline" size="lg">
