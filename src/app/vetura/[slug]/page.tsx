@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronRight, MapPin, Phone, ShieldCheck, Ship, Sparkles, Store } from 'lucide-react';
+import { ChevronRight, ExternalLink, MapPin, Phone, ShieldCheck, Ship, Sparkles, Store } from 'lucide-react';
 import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
+import { isAuthorizedSession } from '@/lib/auth';
+import { encarListingUrl } from '@/lib/vehicles/encar';
 import { site } from '@/lib/site';
 import { formatMileage, formatPrice, sizedImageUrl } from '@/lib/utils';
 import {
@@ -91,6 +93,12 @@ export default async function VehiclePage({
 
   const related = await safe(() => getRelatedVehicles(vehicle, 3), []);
   const name = `${vehicle.brand} ${vehicle.model}`;
+
+  // Owner-only: the original Encar listing (real Korean price). Rendered only
+  // when an admin session is present, so customers never see the source or the
+  // markup. Derived from the photo URL — no schema/sync change needed.
+  const isOwner = await safe(() => isAuthorizedSession(), false);
+  const encarHref = isOwner ? encarListingUrl(vehicle.images) : null;
 
   const whatsappHref = whatsappUrl(
     `Përshëndetje AUTO CONNECT, jam i interesuar për ${name} ${vehicle.variant ?? ''} (${vehicle.year}) — ${formatPrice(vehicle.price)}.\n${site.url}/vetura/${vehicle.slug}\nA është ende në dispozicion?`,
@@ -262,6 +270,20 @@ export default async function VehiclePage({
                   Kërko më shumë informacion
                 </a>
               </div>
+
+              {/* Owner-only — invisible to customers. Opens the original Encar
+                  listing so the operator can check the real Korean price. */}
+              {encarHref ? (
+                <a
+                  href={encarHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-dashed border-amber-500/60 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Shiko në Encar (çmimi real) · vetëm ti
+                </a>
+              ) : null}
 
               <div className="mt-6 flex items-center justify-center gap-4 border-t border-surface-border pt-5 text-xs text-ink-muted">
                 <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-brand" /> E inspektuar</span>

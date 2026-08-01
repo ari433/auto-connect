@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { safe } from '@/lib/db-safe';
 import { formatMileage, formatNumber, formatPrice, sizedImageUrl } from '@/lib/utils';
+import { encarListingUrl } from '@/lib/vehicles/encar';
 import { PageHeader, Card, EmptyRow, StatCard } from '../ui';
 import { VehicleEditor } from './vehicle-editor';
 
@@ -30,6 +31,8 @@ export default async function AdminVehiclesPage({
         OR: [
           { brand: { contains: q, mode: 'insensitive' } },
           { model: { contains: q, mode: 'insensitive' } },
+          { variant: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
         ],
       }
     : {};
@@ -126,7 +129,7 @@ export default async function AdminVehiclesPage({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Kërko markë ose model…"
+          placeholder="Kërko markë, model ose kod (slug)…"
           className="h-10 w-full max-w-sm rounded-xl border border-surface-border bg-white px-4 text-sm focus:border-ink/30 focus:outline-none focus:ring-2 focus:ring-brand/40"
         />
       </form>
@@ -149,6 +152,7 @@ export default async function AdminVehiclesPage({
               ) : (
                 vehicles.map((v) => {
                   const img = thumb(v.images);
+                  const encar = encarListingUrl(v.images as unknown as { url?: string }[]);
                   const effective = v.priceOverride ?? v.price;
                   const cost = v.landedCostEur;
                   const profit = cost != null ? effective - cost : null;
@@ -189,6 +193,16 @@ export default async function AdminVehiclesPage({
                           <div className="text-[0.7rem] text-ink-faint tabular-nums">
                             Koreja: {formatNumber(v.sourcePriceKrw)} ₩
                           </div>
+                        ) : null}
+                        {encar ? (
+                          <a
+                            href={encar}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-[0.7rem] font-medium text-amber-700 hover:underline"
+                          >
+                            🔗 Hap në Encar
+                          </a>
                         ) : null}
                       </td>
                       <td className="px-4 py-3">
