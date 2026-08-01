@@ -33,29 +33,26 @@ export const site = {
   },
 } as const;
 
-/** Primary customer navigation. */
+/**
+ * Primary customer navigation.
+ * Mirrors the koreakosovaauto.com menu: Ballina · Shfleto Veturat · Procesi · FAQ · Kontakt.
+ * Procesi and FAQ are homepage sections (anchors); the rest are pages.
+ */
 export const mainNav = [
-  { label: 'Inventari', href: '/inventari' },
-  { label: 'Asistenti', href: '/asistenti' },
-  { label: 'Rreth nesh', href: '/rreth-nesh' },
-  { label: 'Kontakt', href: '/kontakt' },
+  { label: 'Ballina', href: '/' },
+  { label: 'Shfleto Veturat', href: '/inventari' },
+  { label: 'Procesi', href: '/#procesi' },
+  { label: 'FAQ', href: '/#faq' },
+  { label: 'Kontakt', href: '/#kontakt' },
 ] as const;
 
+/** Footer "Linqe Të Shpejta" — same quick links as the header. */
 export const footerNav = {
-  Inventari: [
-    { label: 'Të gjitha veturat', href: '/inventari' },
-    { label: 'Të sapoardhura', href: '/inventari?sort=newest' },
-    { label: 'Të preferuarat', href: '/te-preferuarat' },
-    { label: 'Kërko', href: '/inventari' },
-  ],
-  Kompania: [
-    { label: 'Rreth nesh', href: '/rreth-nesh' },
-    { label: 'Procesi i importit', href: '/rreth-nesh#procesi' },
-    { label: 'Asistenti virtual', href: '/asistenti' },
-    { label: 'Kontakt', href: '/kontakt' },
-  ],
-  Ndihmë: [
-    { label: 'Pyetje të shpeshta', href: '/rreth-nesh#faq' },
-    { label: 'Të preferuarat', href: '/te-preferuarat' },
+  'Linqe Të Shpejta': [
+    { label: 'Ballina', href: '/' },
+    { label: 'Shfleto Veturat', href: '/inventari' },
+    { label: 'Procesi', href: '/#procesi' },
+    { label: 'FAQ', href: '/#faq' },
+    { label: 'Kontakt', href: '/#kontakt' },
   ],
 } as const;

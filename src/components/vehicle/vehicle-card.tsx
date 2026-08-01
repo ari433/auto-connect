@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Calendar, Fuel, Gauge, Settings2 } from 'lucide-react';
+import { BadgeCheck, Calendar, Fuel, Gauge, Settings2 } from 'lucide-react';
 import type { Vehicle } from '@/types/vehicle';
 import { formatMileage, formatPrice } from '@/lib/utils';
 import { fuelLabels, transmissionLabels, statusLabels } from '@/lib/labels';
@@ -53,6 +53,11 @@ export function VehicleCard({
           </div>
         </div>
 
+        <p className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+          <BadgeCheck className="h-4 w-4" />
+          Verifikuar dhe Garantuar
+        </p>
+
         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm text-ink-muted">
           <Spec icon={<Calendar className="h-4 w-4" />} value={String(vehicle.year)} />
           <Spec icon={<Gauge className="h-4 w-4" />} value={formatMileage(vehicle.mileageKm)} />
@@ -66,7 +71,7 @@ export function VehicleCard({
         <div className="mt-5 flex items-end justify-between border-t border-surface-border pt-4">
           <div>
             <p className="text-[0.7rem] font-medium uppercase tracking-wide text-ink-faint">
-              Çmimi
+              Çmimi (deri në Kosovë)
             </p>
             <p className="text-xl font-semibold tracking-tight text-ink">
               {formatPrice(vehicle.price)}

@@ -9,32 +9,14 @@ export function Footer() {
   return (
     <footer className="bg-ink text-white/80">
       <div className="container py-16 md:py-20">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid gap-12 lg:grid-cols-[1.6fr_1fr_1.2fr]">
+          {/* Brand */}
           <div className="max-w-sm">
             <Logo variant="light" />
             <p className="mt-5 text-sm leading-relaxed text-white/60">
-              {site.description}
+              Lider në importin e veturave premium nga Koreja e Jugut në Kosovë. Ne
+              ofrojmë transparencë oferte, inspektim të plotë dhe doganim të thjeshtë.
             </p>
-            <div className="mt-6 space-y-3 text-sm">
-              <a
-                href={`tel:${site.phones[0].replace(/\s/g, '')}`}
-                className="flex items-center gap-3 text-white/80 transition-colors hover:text-white"
-              >
-                <Phone className="h-4 w-4 text-brand" />
-                {site.phones.join(' · ')}
-              </a>
-              <a
-                href={`mailto:${site.email}`}
-                className="flex items-center gap-3 text-white/80 transition-colors hover:text-white"
-              >
-                <Mail className="h-4 w-4 text-brand" />
-                {site.email}
-              </a>
-              <p className="flex items-center gap-3 text-white/80">
-                <MapPin className="h-4 w-4 text-brand" />
-                {site.location.address}
-              </p>
-            </div>
 
             <a
               href={site.social.instagram}
@@ -47,6 +29,7 @@ export function Footer() {
             </a>
           </div>
 
+          {/* Linqe Të Shpejta */}
           {Object.entries(footerNav).map(([heading, links]) => (
             <div key={heading}>
               <h3 className="text-[0.72rem] font-semibold uppercase tracking-eyebrow text-white/40">
@@ -66,6 +49,49 @@ export function Footer() {
               </ul>
             </div>
           ))}
+
+          {/* Na Kontaktoni */}
+          <div>
+            <h3 className="text-[0.72rem] font-semibold uppercase tracking-eyebrow text-white/40">
+              Na Kontaktoni
+            </h3>
+            <ul className="mt-5 space-y-5 text-sm">
+              <li className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                <div>
+                  <p className="text-white/40">Adresa Zyrtare</p>
+                  <p className="text-white/80">{site.location.address}</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                <div>
+                  <p className="text-white/40">Telefoni</p>
+                  {site.phones.map((phone) => (
+                    <a
+                      key={phone}
+                      href={`tel:${phone.replace(/\s/g, '')}`}
+                      className="block text-white/80 transition-colors hover:text-white"
+                    >
+                      {phone}
+                    </a>
+                  ))}
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                <div>
+                  <p className="text-white/40">Email Zyrtar</p>
+                  <a
+                    href={`mailto:${site.email}`}
+                    className="text-white/80 transition-colors hover:text-white"
+                  >
+                    {site.email}
+                  </a>
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div className="mt-14 flex flex-col gap-2 border-t border-white/10 pt-6 text-sm text-white/50">
@@ -79,10 +105,10 @@ export function Footer() {
           <p>© {year} {site.name}. Të gjitha të drejtat e rezervuara.</p>
           <div className="flex items-center gap-5">
             <Link href="/rreth-nesh" className="hover:text-white/70">
-              Rreth nesh
+              Kushtet e Përdorimit
             </Link>
-            <Link href="/kontakt" className="hover:text-white/70">
-              Kontakt
+            <Link href="/rreth-nesh" className="hover:text-white/70">
+              Politika e Privatësisë
             </Link>
             <Link href="/admin" className="hover:text-white/70">
               Paneli

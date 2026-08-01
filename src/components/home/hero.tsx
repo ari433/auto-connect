@@ -12,30 +12,30 @@ export function Hero({ feature }: { feature?: Vehicle }) {
         <div className="max-w-xl">
           <p className="eyebrow mb-6 animate-fade-up">
             <span className="h-px w-8 bg-brand" aria-hidden />
-            Import premium nga Koreja e Jugut
+            Import direkt nga Koreja e Jugut
           </p>
           <h1 className="text-display-xl animate-fade-up text-balance [animation-delay:60ms]">
-            Këtu fillon vetura <span className="text-brand">juaj</span> e re.
+            Vetura të <span className="text-brand">garantuara</span>.
           </h1>
           <p className="mt-6 max-w-lg animate-fade-up text-lg leading-relaxed text-ink-muted [animation-delay:120ms]">
-            Përzgjedhje e kuruar automjetesh premium, të sjella drejtpërdrejt për ju
-            nga Koreja e Jugut, me çmime transparente dhe dorëzim deri në Kosovë.
+            Zgjidh veturën tënde ideale nga Koreja e Jugut. Proces i thjeshtë,
+            transparent, i sigurt, çmime të mira dhe kualitet pa kompromis.
           </p>
 
           <div className="mt-9 flex animate-fade-up flex-wrap items-center gap-3 [animation-delay:180ms]">
             <ButtonLink href="/inventari" size="lg">
-              Shiko veturat
+              Shfletoni Veturat
               <ArrowRight className="h-4 w-4" />
             </ButtonLink>
-            <ButtonLink href="/asistenti" variant="outline" size="lg">
-              Pyet asistentin
+            <ButtonLink href="/#kontakt" variant="outline" size="lg">
+              Na Kontaktoni
             </ButtonLink>
           </div>
 
           <dl className="mt-12 grid animate-fade-up grid-cols-3 gap-6 border-t border-surface-border pt-8 [animation-delay:240ms]">
             <Stat value="100%" label="Të inspektuara" />
-            <Stat value="35–45 ditë" label="Kohë dorëzimi" />
-            <Stat value="Çmim final" label="Pa taksa shtesë" />
+            <Stat value="~45 ditë" label="Kohë dorëzimi" />
+            <Stat value="Çmim final" label="Pa kosto të fshehura" />
           </dl>
         </div>
 
