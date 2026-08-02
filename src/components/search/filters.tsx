@@ -2,87 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import type { Facets } from '@/types/vehicle';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+/**
+ * Filters are always visible/open — on desktop as a sticky sidebar, on mobile
+ * stacked directly above the car grid. No "open filters" tap needed.
+ */
 export function InventoryFilters({ facets, total }: { facets: Facets; total: number }) {
-  const [open, setOpen] = useState(false);
-  const activeCount = useActiveCount();
-
   return (
-    <>
-      {/* Mobile trigger */}
-      <div className="flex items-center justify-between lg:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full border border-surface-border bg-white px-4 py-2.5 text-sm font-medium"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+          <SlidersHorizontal className="h-4 w-4 text-brand" />
           Filtrat
-          {activeCount > 0 ? (
-            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-xs text-white">
-              {activeCount}
-            </span>
-          ) : null}
-        </button>
+        </h2>
         <span className="text-sm text-ink-muted">{total} vetura</span>
       </div>
-
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:block">
-        <FilterControls facets={facets} />
-      </aside>
-
-      {/* Mobile drawer */}
-      <div
-        className={cn(
-          'fixed inset-0 z-[60] lg:hidden',
-          open ? 'pointer-events-auto' : 'pointer-events-none',
-        )}
-      >
-        <div
-          onClick={() => setOpen(false)}
-          className={cn(
-            'absolute inset-0 bg-ink/40 transition-opacity duration-300',
-            open ? 'opacity-100' : 'opacity-0',
-          )}
-        />
-        <div
-          className={cn(
-            'absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto bg-surface-subtle p-5 shadow-float transition-transform duration-300 ease-premium',
-            open ? 'translate-x-0' : 'translate-x-full',
-          )}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Filtrat</h2>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="grid h-9 w-9 place-items-center rounded-full hover:bg-ink/5"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <FilterControls facets={facets} onApply={() => setOpen(false)} />
-        </div>
-      </div>
-    </>
+      <FilterControls facets={facets} />
+    </div>
   );
-}
-
-function useActiveCount() {
-  const params = useSearchParams();
-  return useMemo(() => {
-    let count = 0;
-    params.forEach((_v, k) => {
-      if (['page', 'sort', 'pageSize'].includes(k)) return;
-      count += 1;
-    });
-    return count;
-  }, [params]);
 }
 
 /** All draft filter fields, mirrored to URL params on "SHFAQ REZULTATET". */
