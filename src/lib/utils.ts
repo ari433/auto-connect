@@ -69,6 +69,26 @@ export function sizedImageUrl(url: string, _variant: 'card' | 'full' = 'card'): 
   }
 }
 
+/**
+ * Route an Encar photo through our own /api/img proxy so the browser loads it
+ * fast from our edge (cached) instead of the slow Korean CDN. Non-Encar URLs
+ * (and already-proxied ones) are returned unchanged. Use for ON-PAGE <img>s;
+ * OG/social images keep the bare Encar URL so crawlers fetch image/jpeg directly.
+ */
+export function proxiedImageUrl(url: string): string {
+  if (!url || url.startsWith('/api/img')) return url;
+  try {
+    const u = new URL(url);
+    if (/(^|\.)encar\.com$/i.test(u.hostname)) {
+      const bare = `${u.origin}${u.pathname}`;
+      return `/api/img?u=${encodeURIComponent(bare)}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 /** URL-safe slug from arbitrary text. */
 export function slugify(input: string): string {
   return input

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { cn, sizedImageUrl } from '@/lib/utils';
+import { cn, proxiedImageUrl, sizedImageUrl } from '@/lib/utils';
 
 /**
  * Vehicle photo with a branded fallback. If a remote image fails to load we
@@ -31,7 +31,8 @@ export function VehicleImage({
   watermark?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-  const resolved = sizedImageUrl(src, variant);
+  // Strip Encar's broken sized query, then serve via our fast cached proxy.
+  const resolved = proxiedImageUrl(sizedImageUrl(src, variant));
 
   if (failed || !resolved) {
     return <ImageFallback className={className} />;
