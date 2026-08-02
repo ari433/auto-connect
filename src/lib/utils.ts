@@ -49,17 +49,18 @@ export function formatDate(value: string | Date): string {
 /**
  * Right-size a source image URL for the context it's shown in.
  *
- * The Encar CDN ignores its resize query params and always serves the full
- * ~2200px master (~1.4 MB) — but the bare URL (no query string) returns a 640px
- * thumbnail (~33 KB). Loading a grid of full masters exhausts browser memory and
- * crashes the tab, so cards and thumbnails use the light variant; the active
- * detail photo keeps full resolution. Non-Encar hosts are returned unchanged.
+ * IMPORTANT: the Encar CDN returns a broken `multipart/form-data` response (which
+ * a browser cannot render in an <img>) for ANY `?impolicy=…` sized variant — and
+ * 503s for other resize params. Only the BARE URL (no query string) returns a
+ * real `image/jpeg`. So for Encar hosts we always strip the query, for both card
+ * thumbnails AND full detail photos, otherwise the photos silently fail to load.
+ * Non-Encar hosts are returned unchanged.
  */
-export function sizedImageUrl(url: string, variant: 'card' | 'full' = 'card'): string {
+export function sizedImageUrl(url: string, _variant: 'card' | 'full' = 'card'): string {
   if (!url) return url;
   try {
     const u = new URL(url);
-    if (/(^|\.)encar\.com$/i.test(u.hostname) && variant === 'card') {
+    if (/(^|\.)encar\.com$/i.test(u.hostname)) {
       return `${u.origin}${u.pathname}`;
     }
     return url;

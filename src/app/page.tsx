@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { getFeaturedVehicles, getLatestVehicles } from '@/lib/catalog';
+import { getLatestVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { Hero } from '@/components/home/hero';
 import { Faq, HomeContact, Process } from '@/components/home/sections';
@@ -10,13 +10,12 @@ import { VehicleGrid, EmptyState } from '@/components/vehicle/vehicle-grid';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [featured, latest] = await Promise.all([
-    safe(() => getFeaturedVehicles(6), []),
-    safe(() => getLatestVehicles(6), []),
-  ]);
+  // A single query drives both the hero and the grid, so a transient failure
+  // can't leave the page showing only a partial/tiny fallback set.
+  const latest = await safe(() => getLatestVehicles(12), []);
 
-  const heroFeature = featured[0] ?? latest[0];
-  const showcase = latest.length ? latest : featured;
+  const heroFeature = latest[0];
+  const showcase = latest;
 
   return (
     <>
