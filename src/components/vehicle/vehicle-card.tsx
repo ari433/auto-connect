@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { BadgeCheck, Calendar, Fuel, Gauge, Settings2 } from 'lucide-react';
 import type { Vehicle } from '@/types/vehicle';
-import { formatMileage, formatPrice } from '@/lib/utils';
+import { formatNumber, formatPrice } from '@/lib/utils';
 import { fuelLabels, transmissionLabels, statusLabels } from '@/lib/labels';
 import { Badge } from '@/components/ui/badge';
 import { FavoriteButton } from '@/components/favorites/favorite-button';
@@ -58,14 +58,15 @@ export function VehicleCard({
           Verifikuar dhe Garantuar
         </p>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm text-ink-muted">
-          <Spec icon={<Calendar className="h-4 w-4" />} value={String(vehicle.year)} />
-          <Spec icon={<Gauge className="h-4 w-4" />} value={formatMileage(vehicle.mileageKm)} />
-          <Spec icon={<Fuel className="h-4 w-4" />} value={fuelLabels[vehicle.fuel]} />
+        <dl className="mt-4 grid grid-cols-2 gap-2.5">
+          <Spec icon={<Calendar className="h-5 w-5" />} value={String(vehicle.year)} label="Viti" />
+          <Spec icon={<Gauge className="h-5 w-5" />} value={formatNumber(vehicle.mileageKm)} label="KM" />
           <Spec
-            icon={<Settings2 className="h-4 w-4" />}
+            icon={<Settings2 className="h-5 w-5" />}
             value={transmissionLabels[vehicle.transmission]}
+            label="Transmisioni"
           />
+          <Spec icon={<Fuel className="h-5 w-5" />} value={fuelLabels[vehicle.fuel]} label="Karburanti" />
         </dl>
 
         <div className="mt-5 flex items-end justify-between border-t border-surface-border pt-4">
@@ -90,11 +91,22 @@ export function VehicleCard({
   );
 }
 
-function Spec({ icon, value }: { icon: React.ReactNode; value: string }) {
+function Spec({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+}) {
   return (
-    <div className="flex items-center gap-2 truncate">
-      <span className="text-ink-faint">{icon}</span>
-      <span className="truncate text-ink-soft">{value}</span>
+    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-surface-subtle px-2 py-3 text-center">
+      <span className="mb-0.5 text-brand">{icon}</span>
+      <span className="w-full truncate text-sm font-semibold text-ink">{value}</span>
+      <span className="text-[0.68rem] font-medium uppercase tracking-wide text-ink-faint">
+        {label}
+      </span>
     </div>
   );
 }
