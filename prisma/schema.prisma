@@ -104,6 +104,13 @@ model Vehicle {
   ownerCount       Int?
   hasAccident      Boolean?
   inspectionPassed Boolean?
+  // Rich Carapis/Encar condition data. Kept as JSON because the upstream
+  // inspection schema can evolve without requiring a destructive migration.
+  inspectionData  Json?
+  accidentHistory Json?
+  priceHistory    Json?
+  // Original source URL is internal/admin metadata and is never required by UI.
+  sourceUrl        String?
 
   // Selling dealer, as reported by the source (never fabricated).
   dealerName     String?
