@@ -40,10 +40,10 @@ if (typeof window !== 'undefined') {
 const CONFIG = {
   baseUrl: (process.env.CARAPIS_BASE_URL ?? 'https://api.carapis.com').replace(/\/$/, ''),
   /**
-   * List path. The live catalog endpoint is `/apix/catalog_api/vehicles/`
-   * (page-based). Versioning is a one-env-var change — set CARAPIS_VEHICLES_PATH.
+   * Carapis V2 normalized listings endpoint. Encar is selected with source=encar.
+   * Keep this env-overridable so a future API version is a config-only change.
    */
-  vehiclesPath: process.env.CARAPIS_VEHICLES_PATH ?? '/apix/catalog_api/vehicles/',
+  vehiclesPath: process.env.CARAPIS_VEHICLES_PATH ?? '/v2/listings',
   apiKey: process.env.CARAPIS_API_KEY ?? '',
   /**
    * Restrict to a single upstream source, e.g. "encar" for South-Korea-only
@@ -133,6 +133,7 @@ interface RawEnvelope {
   // Live catalog_api paginated shape.
   count?: number;
   page?: number;
+  limit?: number;
   pages?: number;
   has_next?: boolean;
   next?: string | null;
@@ -154,20 +155,21 @@ function buildListUrl(
 ): string {
   const url = new URL(CONFIG.vehiclesPath, `${CONFIG.baseUrl}/`);
   const p = url.searchParams;
-  // Live catalog_api pagination (the API is strict — only valid params allowed).
+
+  // Carapis V2 pagination + required marketplace source.
   p.set('page', String(page));
-  p.set('page_size', String(pageSize));
-  p.set('available_only', String(CONFIG.availableOnly));
-  // Restrict to one source (e.g. Encar / South Korea) when configured.
-  // NB: the query parameter is `source` (the response *field* is source_code).
-  if (sourceCode) p.set('source', sourceCode);
-  // Upstream filters, using the API's exact parameter names.
-  if (filters.brand) p.set('brand', filters.brand);
+  p.set('limit', String(pageSize));
+  p.set('source', sourceCode || 'encar');
+
+  // V2 filter names from the public API contract.
+  if (filters.brand) p.set('make', filters.brand);
   if (filters.model) p.set('model', filters.model);
-  if (filters.yearMin != null) p.set('min_year', String(filters.yearMin));
-  if (filters.yearMax != null) p.set('max_year', String(filters.yearMax));
-  if (filters.priceMin != null) p.set('min_price', String(filters.priceMin));
-  if (filters.priceMax != null) p.set('max_price', String(filters.priceMax));
+  if (filters.yearMin != null) p.set('year_min', String(filters.yearMin));
+  if (filters.yearMax != null) p.set('year_max', String(filters.yearMax));
+
+  // Public price filters are customer-facing EUR, while Carapis expects the
+  // source listing currency (KRW for Encar). Do not send mismatched values
+  // upstream; catalogue/search applies the final EUR filters after pricing.
   return url.toString();
 }
 
@@ -184,10 +186,16 @@ function parseEnvelope(body: RawEnvelope): {
     body.vehicles ??
     (Array.isArray(body) ? (body as RawVehicle[]) : []);
   const total = body.count ?? body.data?.total ?? vehicles.length;
+
+  // V2 returns count + page + limit. Keep legacy fallbacks for defensive
+  // compatibility, but prefer the documented V2 pagination contract.
   const hasNext =
-    body.has_next ??
-    Boolean(body.next) ??
-    (body.page != null && body.pages != null ? body.page < body.pages : false);
+    body.page != null && body.limit != null
+      ? body.page * body.limit < total
+      : body.has_next ??
+        Boolean(body.next) ??
+        (body.page != null && body.pages != null ? body.page < body.pages : false);
+
   return { vehicles, total, hasNext };
 }
 
@@ -512,7 +520,41 @@ const readBrand = (raw: RawVehicle) => normalizeBrand(pick(raw, 'brand_name', 'b
 const readModel = (raw: RawVehicle) => str(pick(raw, 'model_name', 'model'));
 const readYear = (raw: RawVehicle) => int(pick(raw, 'year', 'model_year'));
 const readMileage = (raw: RawVehicle) => int(pick(raw, 'mileage', 'mileage_km', 'odometer', 'km'));
-const readPriceUsd = (raw: RawVehicle) => int(pick(raw, 'price_usd', 'price', 'price_krw'));
+const readSourcePrice = (raw: RawVehicle) => int(pick(raw, 'price', 'price_krw', 'price_usd'));
+const readCurrency = (raw: RawVehicle) =>
+  str(pick(raw, 'currency'), pick(raw, 'price_krw') != null ? 'KRW' : pick(raw, 'price_usd') != null ? 'USD' : 'KRW')
+    .trim()
+    .toUpperCase();
+
+function customerPriceFromSource(raw: RawVehicle): { sourcePrice: number; currency: string; priceKrw: number; priceEur: number } {
+  const sourcePrice = readSourcePrice(raw);
+  const currency = readCurrency(raw);
+  if (currency === 'KRW') {
+    return {
+      sourcePrice,
+      currency,
+      priceKrw: sourcePrice,
+      priceEur: convertKrwToEur(sourcePrice),
+    };
+  }
+  if (currency === 'USD') {
+    return {
+      sourcePrice,
+      currency,
+      priceKrw: 0,
+      priceEur: customerPriceFromUsd(sourcePrice),
+    };
+  }
+  if (currency === 'EUR') {
+    return {
+      sourcePrice,
+      currency,
+      priceKrw: 0,
+      priceEur: applyMarketplaceMarkup(sourcePrice),
+    };
+  }
+  return { sourcePrice, currency, priceKrw: 0, priceEur: 0 };
+}
 const readFuel = (raw: RawVehicle) => pick(raw, 'fuel_type', 'fuel');
 const readTransmission = (raw: RawVehicle) => pick(raw, 'transmission', 'gearbox');
 const readBody = (raw: RawVehicle) => pick(raw, 'body_type', 'body', 'car_type');
@@ -557,15 +599,16 @@ function readDealer(raw: RawVehicle): ProviderDealer | undefined {
 
 /** Raw Carapis vehicle → the Albanian `Car` contract served to the frontend. */
 export function mapToCar(raw: RawVehicle): Car {
-  const priceUsd = readPriceUsd(raw);
+  const pricing = customerPriceFromSource(raw);
   return {
     id: str(pick(raw, 'id', 'vehicle_id', 'vin')),
     brand: readBrand(raw),
     model: readModel(raw),
     year: readYear(raw),
-    // priceKRW keeps the source figure (USD) for reference/sorting.
-    priceKRW: priceUsd,
-    priceEUR: customerPriceFromUsd(priceUsd),
+    // For Encar V2 this is the real KRW source price; it remains server data and
+    // is never rendered as the customer-facing selling price.
+    priceKRW: pricing.priceKrw,
+    priceEUR: pricing.priceEur,
     mileageKm: readMileage(raw),
     fuel: albanianFuel(readFuel(raw)),
     transmission: albanianTransmission(readTransmission(raw)),
@@ -579,7 +622,7 @@ export function mapToCar(raw: RawVehicle): Car {
 /** Raw Carapis vehicle → the richer `ProviderVehicle` used everywhere else. */
 export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
   const id = str(pick(raw, 'id', 'vehicle_id', 'vin'));
-  const priceUsd = readPriceUsd(raw);
+  const pricing = customerPriceFromSource(raw);
   const engineCc = int(pick(raw, 'displacement', 'engine_cc', 'engine_volume'), 0) || undefined;
   const horsepower = int(pick(raw, 'horsepower', 'power', 'hp'), 0) || undefined;
   const options = pick(raw, 'options', 'equipment', 'features');
@@ -612,10 +655,10 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     hasAccident: typeof pick(raw, 'has_accident') === 'boolean' ? (pick(raw, 'has_accident') as boolean) : undefined,
     inspectionPassed:
       typeof pick(raw, 'inspection_passed') === 'boolean' ? (pick(raw, 'inspection_passed') as boolean) : undefined,
-    priceKrw: 0,
-    // Source prices are USD → convert and apply the marketplace markup; the
-    // landed-cost pricing engine is bypassed.
-    priceEur: customerPriceFromUsd(priceUsd),
+    priceKrw: pricing.priceKrw,
+    // V2 Encar listings are KRW. The provider boundary converts the source
+    // amount and applies Auto Connect's marketplace margin exactly once.
+    priceEur: pricing.priceEur,
     imageUrls: extractImages(raw),
     equipment: Array.isArray(options) ? options.map((o) => str(o)).filter(Boolean) : [],
     conditionNotes: cleanDescription(str(pick(raw, 'description', 'condition'))) || undefined,
@@ -645,7 +688,7 @@ export async function fetchVehicleDetail(id: string): Promise<ProviderVehicle | 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONFIG.timeoutMs);
   try {
-    const url = `${CONFIG.baseUrl}${CONFIG.vehiclesPath}${encodeURIComponent(id)}/`;
+    const url = `${CONFIG.baseUrl}${CONFIG.vehiclesPath}/${encodeURIComponent(id)}`;
     const res = await fetch(url, { headers, cache: 'no-store', signal: controller.signal });
     if (!res.ok) return null;
     const raw = (await res.json()) as RawVehicle;
@@ -711,7 +754,7 @@ async function* streamProviderPages(
   sourceCode: string,
   startPageSize: number,
 ): AsyncGenerator<ProviderVehicle[], boolean> {
-  let pageSize = Math.max(5, Math.min(startPageSize, 200));
+  let pageSize = Math.max(5, Math.min(startPageSize, 1000));
   let page = 1;
   let emitted = 0;
   // Generous ceiling so a runaway loop can't page forever, sized to the cap.
@@ -721,7 +764,7 @@ async function* streamProviderPages(
     try {
       result = await fetchRaw({}, page, pageSize, sourceCode);
     } catch (err) {
-      // Likely the page size is above the API's cap — halve it and retry.
+      // If the plan rejects the requested limit, halve it and retry.
       if (err instanceof CarapisError && err.status === 400 && pageSize > 5) {
         pageSize = Math.max(5, Math.floor(pageSize / 2));
         continue;
