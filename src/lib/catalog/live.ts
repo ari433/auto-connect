@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
+import { toAccidentCount, toInspectionSummary } from '@/lib/vehicles/condition';
 import { isListableVehicle } from '@/lib/vehicles/listable';
 import { buildPriceSanityFilter } from '@/lib/vehicles/price-sanity';
 import { enrichVehicleDetail } from './enrich';
@@ -71,6 +72,8 @@ function toVehicle(pv: ProviderVehicle, index: number): Vehicle {
     ownerCount: pv.ownerCount ?? null,
     hasAccident: pv.hasAccident ?? null,
     inspectionPassed: pv.inspectionPassed ?? null,
+    inspection: toInspectionSummary(pv.inspectionData),
+    accidentCount: toAccidentCount(pv.accidentHistory),
     price,
     status: 'AVAILABLE',
     featured: pv.featured ?? false,
