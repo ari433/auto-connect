@@ -615,7 +615,6 @@ export function mapToCar(raw: RawVehicle): Car {
     color: albanianColor(readColor(raw)),
     images: extractImages(raw),
     addedAt: toIso(readAddedAt(raw)),
-    encarUrl: str(pick(raw, 'source_url', 'url', 'detail_url')) || undefined,
   };
 }
 
