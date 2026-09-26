@@ -12,6 +12,7 @@
  */
 import { fetchVehicleDetail } from '@/lib/providers/carapis';
 import { idFromSlug } from '@/lib/vehicles/slug';
+import { toAccidentCount, toInspectionSummary } from '@/lib/vehicles/condition';
 import type { Vehicle, VehicleImage } from '@/types/vehicle';
 
 const TTL_MS = Number(process.env.CATALOG_LIVE_TTL_MS ?? 1_800_000);
@@ -74,6 +75,8 @@ export async function enrichVehicleDetail(base: Vehicle): Promise<Vehicle> {
     ownerCount: detail.ownerCount ?? base.ownerCount,
     hasAccident: detail.hasAccident ?? base.hasAccident,
     inspectionPassed: detail.inspectionPassed ?? base.inspectionPassed,
+    inspection: toInspectionSummary(detail.inspectionData) ?? base.inspection,
+    accidentCount: toAccidentCount(detail.accidentHistory) ?? base.accidentCount,
     equipment: detail.equipment.length ? detail.equipment : base.equipment,
     description: detail.conditionNotes || base.description,
     dealer: detail.dealer
