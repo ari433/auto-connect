@@ -572,7 +572,10 @@ function readDealer(raw: RawVehicle): ProviderDealer | undefined {
   const nested = pick(raw, 'dealer', 'seller');
   const src = nested && typeof nested === 'object' ? (nested as RawVehicle) : raw;
 
-  const name = str(pick(src, 'name', 'dealer_name', 'seller_name', 'shop_name')).trim();
+  const name =
+    typeof nested === 'string'
+      ? nested.trim()
+      : str(pick(src, 'name', 'dealer_name', 'seller_name', 'shop_name')).trim();
   const phone = str(
     pick(src, 'phone', 'dealer_phone', 'seller_phone', 'tel', 'contact', 'phone_number'),
   ).trim();
@@ -627,6 +630,20 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
   const horsepower = int(pick(raw, 'horsepower', 'power', 'hp'), 0) || undefined;
   const options = pick(raw, 'options', 'equipment', 'features');
   const variant = str(pick(raw, 'trim', 'grade', 'badge', 'variant')) || undefined;
+  const inspectionRaw = pick(raw, 'inspection_sheet', 'inspectionSheet');
+  const inspectionData =
+    inspectionRaw && typeof inspectionRaw === 'object' && !Array.isArray(inspectionRaw)
+      ? (inspectionRaw as Record<string, unknown>)
+      : undefined;
+  const accidentRaw = pick(raw, 'accident_history', 'accidentHistory');
+  const accidentHistory = Array.isArray(accidentRaw)
+    ? accidentRaw
+    : typeof accidentRaw === 'string' && accidentRaw.toLowerCase() === 'none'
+      ? []
+      : undefined;
+  const priceHistoryRaw = pick(raw, 'price_history', 'priceHistory');
+  const priceHistory = Array.isArray(priceHistoryRaw) ? priceHistoryRaw : undefined;
+  const explicitAccident = pick(raw, 'has_accident');
 
   return {
     ref: id,
@@ -652,9 +669,16 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     seats: int(pick(raw, 'seat_count', 'seats', 'passengers'), 0) || undefined,
     generation: str(pick(raw, 'generation')) || undefined,
     ownerCount: int(pick(raw, 'owner_count'), 0) || undefined,
-    hasAccident: typeof pick(raw, 'has_accident') === 'boolean' ? (pick(raw, 'has_accident') as boolean) : undefined,
+    hasAccident:
+      typeof explicitAccident === 'boolean'
+        ? explicitAccident
+        : accidentHistory
+          ? accidentHistory.length > 0
+          : undefined,
     inspectionPassed:
-      typeof pick(raw, 'inspection_passed') === 'boolean' ? (pick(raw, 'inspection_passed') as boolean) : undefined,
+      typeof pick(raw, 'inspection_passed') === 'boolean'
+        ? (pick(raw, 'inspection_passed') as boolean)
+        : undefined,
     priceKrw: pricing.priceKrw,
     // V2 Encar listings are KRW. The provider boundary converts the source
     // amount and applies Auto Connect's marketplace margin exactly once.
@@ -663,6 +687,10 @@ export function mapToProviderVehicle(raw: RawVehicle): ProviderVehicle {
     equipment: Array.isArray(options) ? options.map((o) => str(o)).filter(Boolean) : [],
     conditionNotes: cleanDescription(str(pick(raw, 'description', 'condition'))) || undefined,
     dealer: readDealer(raw),
+    inspectionData,
+    accidentHistory,
+    priceHistory,
+    sourceUrl: str(pick(raw, 'url', 'source_url', 'detail_url')) || undefined,
     featured: false,
   };
 }
