@@ -39,7 +39,7 @@ function parseQuery(req: NextRequest): CarQuery {
   };
 }
 
-const byPriceKrwDesc = (a: Car, b: Car) => b.priceKRW - a.priceKRW;
+const byCustomerPriceDesc = (a: Car, b: Car) => b.priceEUR - a.priceEUR;
 
 export async function GET(req: NextRequest) {
   const query = parseQuery(req);
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const cars =
       SOURCE === 'db' ? await fromDatabase(query) : await fromLive(query);
 
-    cars.sort(byPriceKrwDesc);
+    cars.sort(byCustomerPriceDesc);
 
     return NextResponse.json(cars, {
       headers: {
