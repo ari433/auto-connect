@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronRight, ExternalLink, MapPin, Phone, ShieldCheck, Ship, Sparkles, Store } from 'lucide-react';
+import { ChevronRight, ExternalLink, MapPin, Phone, ShieldCheck, Ship, Sparkles } from 'lucide-react';
 import { getVehicleBySlug, getRelatedVehicles } from '@/lib/catalog';
 import { safe } from '@/lib/db-safe';
 import { isAuthorizedSession } from '@/lib/auth';
