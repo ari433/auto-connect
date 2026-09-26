@@ -155,6 +155,50 @@ export default async function VehiclePage({
               </div>
             </div>
 
+            {(vehicle.inspection || vehicle.accidentCount != null || vehicle.hasAccident != null) ? (
+              <div className="mt-12">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-brand" />
+                  <h2 className="text-display-sm">Raporti i gjendjes</h2>
+                </div>
+                <p className="mt-2 text-sm text-ink-muted">
+                  Te dhenat me poshte vijne nga raporti i strukturuar i vetures ne Kore.
+                </p>
+                <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-surface-border bg-white p-5">
+                    <dt className="text-xs text-ink-faint">Aksidente / riparime</dt>
+                    <dd className="mt-1 text-sm font-semibold text-ink">
+                      {vehicle.hasAccident === true
+                        ? vehicle.accidentCount != null
+                          ? `${vehicle.accidentCount} te raportuara`
+                          : 'Ka raportim'
+                        : vehicle.hasAccident === false
+                          ? 'Nuk raportohen'
+                          : 'Pa te dhena'}
+                    </dd>
+                  </div>
+                  <div className="rounded-2xl border border-surface-border bg-white p-5">
+                    <dt className="text-xs text-ink-faint">Shasia / korniza</dt>
+                    <dd className="mt-1 text-sm font-semibold text-ink">
+                      {vehicle.inspection?.frameDamage === true
+                        ? 'Raportohet demtim'
+                        : vehicle.inspection?.frameDamage === false
+                          ? 'Nuk raportohet demtim'
+                          : 'Pa te dhena'}
+                    </dd>
+                  </div>
+                  <div className="rounded-2xl border border-surface-border bg-white p-5">
+                    <dt className="text-xs text-ink-faint">Panele te rilyera</dt>
+                    <dd className="mt-1 text-sm font-semibold text-ink">
+                      {vehicle.inspection?.panelsRepainted != null
+                        ? String(vehicle.inspection.panelsRepainted)
+                        : 'Pa te dhena'}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
+
             {vehicle.equipment.length > 0 ? (
               <div className="mt-12">
                 <h2 className="text-display-sm">Pajisjet</h2>
@@ -173,39 +217,15 @@ export default async function VehiclePage({
               </div>
             ) : null}
 
-            {vehicle.dealer && (vehicle.dealer.name || vehicle.dealer.location || vehicle.dealer.phone) ? (
+            {vehicle.dealer?.location ? (
               <div className="mt-12">
-                <h2 className="text-display-sm">Shitësi</h2>
-                <div className="mt-6 rounded-2xl border border-surface-border bg-white p-6">
-                  <dl className="grid gap-4 sm:grid-cols-2">
-                    {vehicle.dealer.name ? (
-                      <div className="flex items-start gap-3">
-                        <Store className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                        <div>
-                          <dt className="text-xs text-ink-faint">Tregtari</dt>
-                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.name}</dd>
-                        </div>
-                      </div>
-                    ) : null}
-                    {vehicle.dealer.location ? (
-                      <div className="flex items-start gap-3">
-                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                        <div>
-                          <dt className="text-xs text-ink-faint">Vendndodhja</dt>
-                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.location}</dd>
-                        </div>
-                      </div>
-                    ) : null}
-                    {vehicle.dealer.phone ? (
-                      <div className="flex items-start gap-3">
-                        <Phone className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                        <div>
-                          <dt className="text-xs text-ink-faint">Kontakti</dt>
-                          <dd className="text-sm font-medium text-ink">{vehicle.dealer.phone}</dd>
-                        </div>
-                      </div>
-                    ) : null}
-                  </dl>
+                <h2 className="text-display-sm">Lokacioni ne Kore</h2>
+                <div className="mt-6 flex items-start gap-3 rounded-2xl border border-surface-border bg-white p-6">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                  <div>
+                    <p className="text-xs text-ink-faint">Vendndodhja e vetures</p>
+                    <p className="text-sm font-medium text-ink">{vehicle.dealer.location}</p>
+                  </div>
                 </div>
               </div>
             ) : null}
