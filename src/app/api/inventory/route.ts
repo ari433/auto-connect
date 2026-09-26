@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { fetchCars, CarapisError, carapisStatus } from '@/lib/providers/carapis';
+import { fetchCars, CarapisError } from '@/lib/providers/carapis';
 import { vehicleToCar } from '@/lib/inventory/from-db';
 import { prisma } from '@/lib/prisma';
 import type { Car, CarQuery } from '@/types/car';
@@ -39,7 +39,7 @@ function parseQuery(req: NextRequest): CarQuery {
   };
 }
 
-const byPriceKrwDesc = (a: Car, b: Car) => b.priceKRW - a.priceKRW;
+const byCustomerPriceDesc = (a: Car, b: Car) => b.priceEUR - a.priceEUR;
 
 export async function GET(req: NextRequest) {
   const query = parseQuery(req);
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const cars =
       SOURCE === 'db' ? await fromDatabase(query) : await fromLive(query);
 
-    cars.sort(byPriceKrwDesc);
+    cars.sort(byCustomerPriceDesc);
 
     return NextResponse.json(cars, {
       headers: {
@@ -105,14 +105,9 @@ async function fromDatabase(query: CarQuery): Promise<Car[]> {
   return rows.map(vehicleToCar);
 }
 
-/** Lightweight diagnostics (no secrets) — handy while wiring up a key. */
+/** White-label diagnostics: never expose the upstream provider publicly. */
 export function HEAD() {
-  const status = carapisStatus();
   return new NextResponse(null, {
-    headers: {
-      'X-Inventory-Source': SOURCE,
-      'X-Carapis-Tier': status.tier,
-      'X-Carapis-Base': status.baseUrl,
-    },
+    headers: { 'X-Inventory-Source': SOURCE },
   });
 }

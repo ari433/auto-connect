@@ -64,6 +64,13 @@ export interface Vehicle {
   ownerCount?: number | null;
   hasAccident?: boolean | null;
   inspectionPassed?: boolean | null;
+  /** Safe summary derived from the structured Encar inspection sheet. */
+  inspection?: {
+    panelsRepainted: number | null;
+    frameDamage: boolean | null;
+  } | null;
+  /** Number of recorded accident/repair events when the source provides it. */
+  accidentCount?: number | null;
   /** Final customer-facing price in EUR, from the pricing engine. */
   price: number;
   status: VehicleStatus;

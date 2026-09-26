@@ -59,6 +59,14 @@ export interface ProviderVehicle {
   conditionNotes?: string;
   /** Selling dealer, when the provider exposes it. */
   dealer?: ProviderDealer;
+  /** Structured provider condition data. Stored raw so no Encar detail is lost. */
+  inspectionData?: Record<string, unknown>;
+  /** Accident/repair events exactly as supplied by the provider. */
+  accidentHistory?: unknown[];
+  /** Source-price history. Admin/internal only; never shown as Encar price. */
+  priceHistory?: unknown[];
+  /** Original upstream listing URL. Internal/admin only. */
+  sourceUrl?: string;
   featured?: boolean;
 }
 

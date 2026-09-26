@@ -5,7 +5,7 @@
  * customer-facing figure is the imported base price (already converted to EUR)
  * plus a fixed marketplace margin that covers Auto Connect's service:
  *
- *   base ≤ €10,000  →  base + €2,000
+ *   base ≤ €10,000  →  base + €1,500
  *   base >  €10,000  →  base + €3,000
  *
  * This is the single place that rule lives. It is applied once, at the provider
@@ -23,7 +23,7 @@ function num(env: string | undefined, fallback: number): number {
 }
 
 const THRESHOLD_EUR = num(process.env.PRICING_MARKUP_THRESHOLD_EUR, 10_000);
-const MARKUP_LOW_EUR = num(process.env.PRICING_MARKUP_LOW_EUR, 2_000);
+const MARKUP_LOW_EUR = num(process.env.PRICING_MARKUP_LOW_EUR, 1_500);
 const MARKUP_HIGH_EUR = num(process.env.PRICING_MARKUP_HIGH_EUR, 3_000);
 
 /**
