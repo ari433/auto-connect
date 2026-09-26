@@ -36,9 +36,14 @@ export interface SyncResult {
 
 /** Map a provider vehicle into a fully-priced Prisma vehicle payload. */
 function toVehicleData(v: ProviderVehicle): Prisma.VehicleUncheckedCreateInput {
-  const breakdown = computePrice(v.priceKrw, getPricingConfig());
-  // When the provider gives a ready EUR price (USD source), use it directly.
+  const pricingConfig = getPricingConfig();
+  const breakdown = computePrice(v.priceKrw, pricingConfig);
+  // Carapis V2 is priced at the provider boundary so the source amount is never
+  // exposed as the storefront price.
   const price = v.priceEur ?? breakdown.price;
+  const sourceBaseEur = v.priceKrw
+    ? Math.round(v.priceKrw * pricingConfig.fxKrwToEur)
+    : 0;
 
   const images: VehicleImage[] = v.imageUrls.map((url, i) => ({
     url,
@@ -71,6 +76,16 @@ function toVehicleData(v: ProviderVehicle): Prisma.VehicleUncheckedCreateInput {
     ownerCount: v.ownerCount ?? null,
     hasAccident: v.hasAccident ?? null,
     inspectionPassed: v.inspectionPassed ?? null,
+    ...(v.inspectionData
+      ? { inspectionData: v.inspectionData as Prisma.InputJsonValue }
+      : {}),
+    ...(v.accidentHistory
+      ? { accidentHistory: v.accidentHistory as Prisma.InputJsonValue }
+      : {}),
+    ...(v.priceHistory
+      ? { priceHistory: v.priceHistory as Prisma.InputJsonValue }
+      : {}),
+    sourceUrl: v.sourceUrl ?? null,
     dealerName: v.dealer?.name ?? null,
     dealerPhone: v.dealer?.phone ?? null,
     dealerLocation: v.dealer?.location ?? null,
@@ -79,9 +94,11 @@ function toVehicleData(v: ProviderVehicle): Prisma.VehicleUncheckedCreateInput {
     images: images as unknown as Prisma.InputJsonValue,
     description,
     sourcePriceKrw: v.priceKrw || null,
-    landedCostEur: v.priceEur ? null : breakdown.landedCostEur,
+    landedCostEur: v.priceEur ? sourceBaseEur || null : breakdown.landedCostEur,
     price,
-    marginEur: v.priceEur ? 0 : breakdown.marginEur,
+    marginEur: v.priceEur
+      ? Math.max(0, price - sourceBaseEur)
+      : breakdown.marginEur,
     featured: v.featured ?? false,
     syncedAt: new Date(),
   };
