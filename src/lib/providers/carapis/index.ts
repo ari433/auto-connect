@@ -608,9 +608,6 @@ export function mapToCar(raw: RawVehicle): Car {
     brand: readBrand(raw),
     model: readModel(raw),
     year: readYear(raw),
-    // For Encar V2 this is the real KRW source price; it remains server data and
-    // is never rendered as the customer-facing selling price.
-    priceKRW: pricing.priceKrw,
     priceEUR: pricing.priceEur,
     mileageKm: readMileage(raw),
     fuel: albanianFuel(readFuel(raw)),
@@ -865,7 +862,6 @@ function providerVehicleToCar(v: ProviderVehicle): Car {
     brand: v.brand,
     model: v.model,
     year: v.year,
-    priceKRW: v.priceKrw,
     priceEUR: convertKrwToEur(v.priceKrw),
     mileageKm: v.mileageKm,
     fuel: albanianFuel(v.fuel),
