@@ -1,5 +1,6 @@
 import type { Vehicle as PrismaVehicle } from '@prisma/client';
 import type { AdminVehicle, Vehicle, VehicleImage } from '@/types/vehicle';
+import { toAccidentCount, toInspectionSummary } from '@/lib/vehicles/condition';
 
 function parseImages(value: PrismaVehicle['images']): VehicleImage[] {
   if (Array.isArray(value)) {
@@ -32,6 +33,8 @@ export function toPublicVehicle(v: PrismaVehicle): Vehicle {
     ownerCount: v.ownerCount,
     hasAccident: v.hasAccident,
     inspectionPassed: v.inspectionPassed,
+    inspection: toInspectionSummary(v.inspectionData),
+    accidentCount: toAccidentCount(v.accidentHistory),
     // A manual admin override always wins over the source-derived price.
     price: v.priceOverride ?? v.price,
     status: v.status,
