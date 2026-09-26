@@ -11,8 +11,6 @@ export interface Car {
   brand: string;
   model: string;
   year: number;
-  /** Original listing price in South Korean won. */
-  priceKRW: number;
   /** Converted price in EUR, using the configurable rate (env). */
   priceEUR: number;
   mileageKm: number;
