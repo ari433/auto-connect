@@ -23,8 +23,6 @@ export interface Car {
   images: string[];
   /** ISO timestamp derived from the upstream `created_at`. */
   addedAt: string;
-  /** Original source listing URL, when provided. */
-  encarUrl?: string;
 }
 
 /** Optional filters accepted by the inventory feed (mirrors provider params). */
