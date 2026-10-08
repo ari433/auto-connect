@@ -7,6 +7,7 @@ import { buildVehicleSlug } from '@/lib/vehicles/slug';
 import { isListableVehicle } from '@/lib/vehicles/listable';
 import { buildPriceSanityFilter } from '@/lib/vehicles/price-sanity';
 import type { VehicleImage } from '@/types/vehicle';
+import { validateInventorySnapshot } from './snapshot-guard';
 
 export interface SyncOptions {
   /** Cap on vehicles pulled this run (default: the provider's configured max). */
@@ -22,6 +23,8 @@ export interface SyncOptions {
    * retire, or it would wrongly sell off everything it didn't reach.
    */
   retire?: boolean;
+  /** Do not delete price outliers during externally sourced snapshot imports. */
+  skipPrune?: boolean;
 }
 
 export interface SyncResult {
@@ -231,7 +234,7 @@ export async function runSync(
   const updated = Math.max(0, fetched - created);
 
   // Drop listings with corrupted (outlier) source prices from the catalogue.
-  const pruned = fetched > 0 ? await prunePriceOutliers() : 0;
+  const pruned = fetched > 0 && !options.skipPrune ? await prunePriceOutliers() : 0;
   if (pruned) {
     message = `${message ? message + ' ' : ''}${pruned} çmime të gabuara u hoqën.`;
   }
@@ -265,4 +268,29 @@ export async function runSync(
   });
 
   return { runId: run.id, status: 'SUCCESS', fetched, created, updated, removed, message };
+}
+
+/**
+ * Safe importer entry point for a verified, complete external snapshot.
+ * Validates before the first database write, disables destructive cleanup,
+ * and never retires existing listings based on one external snapshot.
+ * The upstream fetch/authorization must happen outside this function.
+ */
+export async function importVerifiedSnapshot(
+  rows: ProviderVehicle[],
+  options: { minimumCount?: number; previousCount?: number } = {},
+): Promise<SyncResult> {
+  const validation = validateInventorySnapshot(rows, {
+    minimumCount: options.minimumCount ?? 20,
+    previousCount: options.previousCount,
+  });
+  if (!validation.ok) {
+    throw new Error(`Snapshot rejected before DB writes: ${validation.reasons.join(', ')}`);
+  }
+  const provider: VehicleProvider = {
+    id: 'encar-snapshot',
+    displayName: 'Verified external inventory snapshot',
+    fetchInventory: async () => rows,
+  };
+  return runSync(provider, { retire: false, skipPrune: true, maxVehicles: rows.length });
 }
