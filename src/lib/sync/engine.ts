@@ -200,7 +200,7 @@ export async function runSync(
       // Keep only real, sellable listings (valid year + plausible price) —
       // the feed carries occasional artifacts (non-cars, placeholder prices).
       const valid = r.value.filter((v) =>
-        isListableVehicle({ year: v.year, price: v.priceEur ?? 0 }),
+        isListableVehicle({ year: v.year, price: v.priceEur ?? computePrice(v.priceKrw, getPricingConfig()).price }),
       );
       await upsertBatch(valid);
       fetched += valid.length;
