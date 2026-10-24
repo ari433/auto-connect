@@ -14,6 +14,7 @@
     "prisma:push": "prisma db push",
     "prisma:deploy": "prisma migrate deploy",
     "db:sync": "tsx --env-file=.env scripts/full-sync.ts",
+    "db:sync:direct": "tsx --env-file=.env scripts/encar-direct-sync.ts",
     "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
