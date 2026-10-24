@@ -40,15 +40,43 @@ const isDbMode = catalogMode === 'db';
 const DB_READY_TTL_MS = 30_000;
 let dbReadyCache: { at: number; ready: boolean } | null = null;
 
+/**
+ * Hard cap on how long we wait for the database before giving up and treating
+ * it as unreachable. Belt-and-suspenders alongside Prisma's own connect
+ * timeout: a serverless function (Vercel Hobby = 10s) must have enough budget
+ * left to actually run the live fallback and respond — a slow/hanging
+ * database must never be able to make the whole page hang with it.
+ */
+const DB_CHECK_TIMEOUT_MS = 4_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function dbReady(): Promise<boolean> {
   if (!isDbMode) return false;
   if (dbReadyCache && Date.now() - dbReadyCache.at < DB_READY_TTL_MS) {
     return dbReadyCache.ready;
   }
   try {
-    const count = await prisma.vehicle.count({
-      where: { status: { in: ['AVAILABLE', 'RESERVED', 'IN_TRANSIT'] } },
-    });
+    const count = await withTimeout(
+      prisma.vehicle.count({
+        where: { status: { in: ['AVAILABLE', 'RESERVED', 'IN_TRANSIT'] } },
+      }),
+      DB_CHECK_TIMEOUT_MS,
+    );
     const ready = count > 0;
     dbReadyCache = { at: Date.now(), ready };
     return ready;
@@ -66,7 +94,7 @@ async function dbReady(): Promise<boolean> {
 async function read<T>(dbFn: () => Promise<T>, liveFn: () => Promise<T>): Promise<T> {
   if (!(await dbReady())) return liveFn();
   try {
-    return await dbFn();
+    return await withTimeout(dbFn(), 6_000);
   } catch (error) {
     console.warn('[catalog] database read failed — using live backup:', error);
     return liveFn();

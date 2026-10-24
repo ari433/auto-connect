@@ -35,6 +35,14 @@ export async function GET(req: NextRequest) {
   // Always fetch the bare URL — sized variants return broken multipart bodies.
   const bare = `${target.origin}${target.pathname}`;
 
+  // The Korean CDN can be slow or briefly unreachable from Vercel's network.
+  // Without a bound, a stuck upstream fetch holds this function open for its
+  // full timeout — and with many photos per page, that can exhaust the
+  // serverless concurrency pool and make the WHOLE SITE feel down, not just
+  // one image. Fail fast instead so a single slow photo never cascades.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+
   try {
     const upstream = await fetch(bare, {
       headers: {
@@ -44,6 +52,7 @@ export async function GET(req: NextRequest) {
         Accept: 'image/avif,image/webp,image/jpeg,image/*,*/*;q=0.8',
       },
       cache: 'force-cache',
+      signal: controller.signal,
     });
 
     if (!upstream.ok || !upstream.body) {
@@ -66,5 +75,7 @@ export async function GET(req: NextRequest) {
     });
   } catch {
     return new Response('fetch failed', { status: 502 });
+  } finally {
+    clearTimeout(timer);
   }
 }

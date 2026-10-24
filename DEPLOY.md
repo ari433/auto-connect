@@ -9,6 +9,15 @@ Kodi është në degën `claude/auto-connect-marketplace-ex50fi`. Bëje push (os
 Krijo një falas te **Neon** (neon.tech), **Supabase** ose **Vercel Postgres**.
 Kopjo `DATABASE_URL` (formati: `postgresql://user:pass@host/db?sslmode=require`).
 
+> ⚠️ **Shumë e rëndësishme (Neon + Vercel):** Neon jep DY stringje lidhjeje —
+> një **"pooled"** (hosti ka `-pooler` në emër) dhe një **direkte**. Në Vercel
+> (serverless) duhet përdorur **GJITHMONË versioni "pooled"**. Nëse përdoret
+> gabimisht versioni direkt, lidhjet e bazës mbushen shpejt dhe çdo kërkesë
+> fillon të ngecë/dështojë — sajti duket "i ndalur" edhe pse kodi është në
+> rregull. (Që nga versioni më i fundit i kodit, një lidhje e ngecur dështon
+> brenda ~5 sekondash dhe kalon vetë te Carapis live, në vend që të varet
+> përgjithmonë — por stringu i saktë "pooled" mbetet rregullimi real.)
+
 ## 3. Importo në Vercel
 - vercel.com → New Project → importo repo-n GitHub.
 - Framework: Next.js (zbulohet vetë). Build: `prisma generate && next build` (default).
