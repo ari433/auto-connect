@@ -11,6 +11,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { carapisProvider, fetchVehicleDetail } from '@/lib/providers/carapis';
 import { computePrice, getPricingConfig } from '@/lib/pricing/engine';
 import { buildVehicleSlug, idFromSlug } from '@/lib/vehicles/slug';
@@ -94,7 +95,16 @@ let inflight: Promise<Vehicle[]> | null = null;
 
 // Persist the catalogue to disk so it survives server restarts and rate limits:
 // after a single successful load, the storefront is never empty again.
-const CACHE_DIR = join(process.cwd(), '.cache');
+//
+// IMPORTANT: on Vercel (and AWS Lambda generally) the deployment bundle — i.e.
+// `process.cwd()` — is READ-ONLY; only `/tmp` is writable. Writing under
+// `process.cwd()/.cache` silently failed on every request in production (the
+// write is wrapped in a best-effort try/catch), so the disk cache never
+// actually persisted there — every cold-started function instance had no
+// memory cache AND no disk cache, so a Carapis rate limit meant an empty
+// storefront instead of the last-good data. `/tmp` works the same in local
+// dev and is the only option that works on serverless.
+const CACHE_DIR = join(tmpdir(), 'auto-connect-cache');
 const CACHE_FILE = join(CACHE_DIR, 'live-inventory.json');
 
 function readDisk(): { at: number; items: Vehicle[] } | null {
